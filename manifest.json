@@ -1,7 +1,7 @@
 {
   "id": "christmas-cabin",
   "name": "圣诞小屋",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "平安夜前的节日小屋：好孩子名单、礼物盲盒、圣诞信箱、神秘圣诞老人（拟物木纹与羊皮纸风格，模块化）",
   "author": "GoldFuchs",
   "entry": "https://raw.githubusercontent.com/goldfuchs0921-ui/christmas-cabin/main/christmas-cabin.js",
