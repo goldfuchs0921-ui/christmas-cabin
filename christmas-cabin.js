@@ -1,18 +1,18 @@
-/* 圣诞小屋 v1.3.0 — 核心文件（入口）
+/* 圣诞小屋 v1.4.0 — 核心文件（入口）
  * 负责：加载模块、共享状态、AI 调用（流式可选）、后台任务、路由、事件分发
  * 界面和功能都在 modules/ 里，哪里不对改哪个文件：
  *   （所有文件都直接放在仓库最外层，不用文件夹）
- *   theme 材质样式 · home 主页 · settings 设置页 · cert 好孩子名单 · gift 礼物盲盒 · mail 圣诞信箱 · santa 神秘圣诞老人 · record 唱片机
+ *   theme 材质样式 · home 主页 · settings 设置页 · cert 好孩子名单 · gift 礼物盲盒 · mail 圣诞信箱 · santa 神秘圣诞老人 · record 唱片机 · snow 雪仗
  */
 (function () {
   "use strict";
-  var VER = "1.3.0";
+  var VER = "1.4.0";
   var BASE = "https://raw.githubusercontent.com/goldfuchs0921-ui/christmas-cabin/main/";
   try {
     var cs = document.currentScript;
     if (cs && cs.src && /christmas-cabin\.js/.test(cs.src)) BASE = cs.src.replace(/[^\/]*$/, "");
   } catch (e) { /* 用默认地址 */ }
-  var MODULES = ["theme", "home", "settings", "cert", "gift", "mail", "santa", "record"];
+  var MODULES = ["theme", "home", "settings", "cert", "gift", "mail", "santa", "record", "snow"];
 
   var R = window.RCC = window.RCC || {};
   R.mods = R.mods || []; R.status = R.status || {}; R.base = BASE; R.ver = VER;
