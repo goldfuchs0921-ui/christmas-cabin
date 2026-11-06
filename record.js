@@ -64,10 +64,11 @@
     });
     return wavBlob(await c.startRendering());
   }
-  function dataToBlob(du) {
+  var MIME = { mp3: "audio/mpeg", m4a: "audio/mp4", m4b: "audio/mp4", aac: "audio/aac", wav: "audio/wav", flac: "audio/flac", ogg: "audio/ogg", oga: "audio/ogg", opus: "audio/ogg", mp4: "video/mp4", caf: "audio/x-caf", aif: "audio/aiff", aiff: "audio/aiff" };
+  function dataToBlob(du, mime) {
     var m = /^data:([^;,]*)(;base64)?,(.*)$/.exec(du), bin = atob(m[3]), u = new Uint8Array(bin.length);
     for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
-    return new Blob([u], { type: m[1] || "audio/mpeg" });
+    return new Blob([u], { type: mime || (m[1] && m[1] !== "application/octet-stream" ? m[1] : "audio/mpeg") });
   }
   function readAsDataURL(file) {
     return new Promise(function (ok, no) { var r = new FileReader(); r.onload = function () { ok(r.result); }; r.onerror = function () { no(new Error("读取文件失败")); }; r.readAsDataURL(file); });
@@ -79,6 +80,8 @@
     next: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 5l9 7-9 7zM17 5h2v14h-2z" fill="#4a2a07"/></svg>',
     prev: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M18 5l-9 7 9 7zM5 5h2v14H5z" fill="#4a2a07"/></svg>',
     close: '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M6 6l12 12M18 6L6 18" stroke="#4a2a07" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg>',
+    repeat: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#4a2a07" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l3 3-3 3M4 11V9a3 3 0 013-3h13M7 21l-3-3 3-3M20 13v2a3 3 0 01-3 3H4"/></svg>',
+    repeat1: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#4a2a07" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l3 3-3 3M4 11V9a3 3 0 013-3h13M7 21l-3-3 3-3M20 13v2a3 3 0 01-3 3H4"/><path d="M11 10.5l1.5-1v6" stroke-width="1.8"/></svg>',
     vinyl: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="17" fill="#222" stroke="#8a5a1c" stroke-width="2"/><circle cx="24" cy="24" r="9" fill="none" stroke="#555" stroke-width=".8"/><circle cx="24" cy="24" r="6" fill="#a3293a"/><circle cx="24" cy="24" r="1.6" fill="#f3e6c8"/></svg>'
   };
 
@@ -89,14 +92,16 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
 .rcc .on .disc,.rcc .playing .disc{animation-play-state:running}
 .rcc .tt{position:relative;width:min(100%,300px);height:230px;margin:0 auto 12px;border-radius:12px;box-shadow:inset 0 0 18px rgba(0,0,0,.65),0 0 0 3px #2c180c,0 8px 14px rgba(0,0,0,.5)}
 .rcc .tt .plate{position:absolute;left:24px;top:22px;width:186px;height:186px}
-.rcc .tt .arm{position:absolute;right:30px;top:18px;width:8px;height:120px;border-radius:4px;background:linear-gradient(90deg,#f6dc8f,#c9962f 50%,#8a5a1c);box-shadow:0 2px 4px rgba(0,0,0,.6);transform-origin:50% 7px;transform:rotate(-26deg);transition:transform .7s}
+.rcc .tt .arm{position:absolute;right:30px;top:18px;width:8px;height:122px;border-radius:4px;background:linear-gradient(90deg,#f6dc8f,#c9962f 50%,#8a5a1c);box-shadow:0 2px 4px rgba(0,0,0,.6);transform-origin:50% 7px;transform:rotate(-8deg);transition:transform .8s}
+.rcc .tt .arm::after{content:"";position:absolute;left:-4px;bottom:-12px;width:16px;height:20px;border-radius:3px 3px 7px 7px;background:linear-gradient(#e3b341,#8a5a1c);box-shadow:0 2px 3px rgba(0,0,0,.6)}
 .rcc .tt .arm::before{content:"";position:absolute;top:-7px;left:-5px;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff1b8,#a8741c)}
-.rcc .tt.on .arm{transform:rotate(12deg)}
+.rcc .tt.on .arm{transform:rotate(62deg)}
 .rcc .np{text-align:center;font-size:18px;min-height:46px}
 .rcc .np small{display:block;color:var(--soft);font-size:12px;font-style:italic}
 .rcc .ctl{display:flex;justify-content:center;align-items:center;gap:16px;margin:8px 0 14px}
 .rcc .ctl .gbtn.big{width:50px;height:50px}
 .rcc .ctl .gbtn[disabled]{opacity:.4}
+.rcc .ctl .gbtn.act{box-shadow:0 0 0 3px #a3293a,inset 0 1px 1px rgba(255,255,255,.75),0 2px 4px rgba(0,0,0,.6)}
 .rcc .songs{list-style:none;margin:6px 0 0;padding:0}
 .rcc .songs li{display:flex;align-items:center;border-bottom:1px dashed rgba(90,58,24,.4)}
 .rcc .songs .sg{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:11px 0;background:none;border:0;text-align:left;color:var(--ink)}
@@ -122,7 +127,7 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
     create: function (ctx) {
       var roche = ctx.roche, st = ctx.st, e = ctx.esc;
       var shelf = "xmas", cur = null, playing = false, mini = false, audio = new Audio();
-      var xurls = {}, preparing = false, mine = [], murls = {}, loadingMine = false, msg = "", drag = null;
+      var loopOne = false, xurls = {}, preparing = false, mine = [], murls = {}, loadingMine = false, msg = "", drag = null;
       var fl = document.createElement("div");
       fl.className = "rfl"; fl.style.display = "none"; ctx.root.appendChild(fl);
 
@@ -203,7 +208,7 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
             msg = "正在读取唱片（" + (i + 1) + "/" + todo.length + "）：" + todo[i].name;
             if (onRecordPage()) ctx.render();
             var du = await roche.storage.get("rec:" + todo[i].id);
-            if (du) murls[todo[i].id] = URL.createObjectURL(dataToBlob(du));
+            if (du) murls[todo[i].id] = URL.createObjectURL(dataToBlob(du, todo[i].mime));
           }
         } catch (err) { roche.ui.toast("读取唱片失败：" + (err && err.message || err)); }
         msg = ""; loadingMine = false;
@@ -213,17 +218,20 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
         if (!file) return;
         if (mine.length >= MAX_SONGS) return roche.ui.toast("最多存 " + MAX_SONGS + " 首，先删掉一首吧");
         if (file.size > MAX_MB * 1048576) return roche.ui.toast("这个文件超过 " + MAX_MB + "MB 了");
-        var id = ctx.uid();
+        var ext = (/\.([^.]+)$/.exec(file.name) || [])[1], typed = /^(audio|video)\//.test(file.type);
+        ext = ext ? ext.toLowerCase() : "";
+        if (!typed && !MIME[ext]) return roche.ui.toast("这看起来不是音频文件（支持 mp3、m4a、aac、wav、flac、ogg、mp4 等）");
+        var mime = typed ? file.type : MIME[ext], id = ctx.uid();
         (async function () {
           try {
             msg = "正在读取文件…（1/3）"; ctx.render();
             var du = await readAsDataURL(file);
             msg = "正在保存到插件存储…（2/3）"; ctx.render();
             await roche.storage.set("rec:" + id, du);
-            mine.push({ id: id, name: file.name.replace(/\.[^.]+$/, ""), size: file.size });
+            mine.push({ id: id, name: file.name.replace(/\.[^.]+$/, ""), size: file.size, mime: mime });
             await roche.storage.set("recIndex", mine);
             msg = "正在准备播放…（3/3）"; ctx.render();
-            murls[id] = URL.createObjectURL(file);
+            murls[id] = URL.createObjectURL(new Blob([file], { type: mime }));
             roche.ui.toast("唱片已放上架");
           } catch (err) { roche.ui.toast("添加失败：" + (err && err.message || err)); }
           msg = ""; ctx.render();
@@ -252,6 +260,7 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
       return {
         init: async function () {
           mine = (await roche.storage.get("recIndex")) || [];
+          loopOne = !!(await roche.storage.get("recLoop")); audio.loop = loopOne;
           prepare();
         },
         destroy: function () {
@@ -267,7 +276,8 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
             '<div class="np">' + (s ? e(sh2t(s)) + '<small>' + e(s.e || "") + '</small>' : '<small>选一张唱片开始播放</small>') + '</div>' +
             '<div class="ctl"><button class="gbtn" data-act="record.prev"' + (cur ? "" : " disabled") + '>' + IC.prev + '</button>' +
             '<button class="gbtn big" data-act="record.pp"' + (cur ? "" : " disabled") + '>' + (playing ? IC.pause : IC.play) + '</button>' +
-            '<button class="gbtn" data-act="record.next"' + (cur ? "" : " disabled") + '>' + IC.next + '</button></div>' +
+            '<button class="gbtn" data-act="record.next"' + (cur ? "" : " disabled") + '>' + IC.next + '</button>' +
+            '<button class="gbtn' + (loopOne ? " act" : "") + '" data-act="record.loop" aria-label="循环方式">' + (loopOne ? IC.repeat1 : IC.repeat) + '</button></div>' +
             '<div class="tabs"><button class="' + (shelf === "xmas" ? "on" : "") + '" data-act="record.tab" data-t="xmas">圣诞经典</button><button class="' +
             (shelf === "mine" ? "on" : "") + '" data-act="record.tab" data-t="mine">我的唱片</button></div>';
           if (msg) h += ctx.wait(e(msg));
@@ -295,9 +305,13 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
           if (name === "next") return step(1);
           if (name === "prev") return step(-1);
           if (name === "close") return stop();
+          if (name === "loop") {
+            loopOne = !loopOne; audio.loop = loopOne; await roche.storage.set("recLoop", loopOne);
+            roche.ui.toast(loopOne ? "单曲循环" : "列表循环（播完自动下一首）"); return refresh();
+          }
           if (name === "add") {
             var inp = document.createElement("input");
-            inp.type = "file"; inp.accept = "audio/*";
+            inp.type = "file";   // 不限制类型：iOS 文件选择器写了 accept 会把 mp3/m4a 灰掉，选完后再检查格式
             inp.onchange = function () { addFile(inp.files && inp.files[0]); };
             return inp.click();
           }
