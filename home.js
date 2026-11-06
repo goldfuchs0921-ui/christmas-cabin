@@ -1,5 +1,5 @@
 /* home.js — 主页：夜空小屋 + 木纹面板 + 羊皮纸功能卡片（按各功能模块的 home 信息自动生成）
- * 想换图：把 images/bg-top.webp、images/decor-bottom.webp 放进仓库即可，没有图时显示代码画的备用样式 */
+ * 想换图：把 bg-top.webp、decor-bottom.webp 放进仓库即可，没有图时显示代码画的备用样式 */
 (function () {
   "use strict";
   var R = window.RCC;
@@ -65,12 +65,12 @@
                 '<span class="tx"><span class="en">' + h.en + '<em>✦</em></span><span class="zh">' + h.zh + '</span><small>' + h.desc + '</small></span>' +
                 '<span class="gbtn">→</span>' + right + '</button>';
             }).join("");
-          return '<div class="hero">' + CABIN + '<img src="' + R.base + 'images/bg-top.webp" alt="" onerror="this.remove()">' +
+          return '<div class="hero">' + CABIN + '<img src="' + R.base + 'bg-top.webp" alt="" onerror="this.remove()">' +
             '<button class="gbtn corner l" data-act="core.exit" aria-label="退出">‹</button>' +
             '<button class="gbtn corner r" data-act="core.go" data-v="settings" aria-label="设置">' + GEAR + '</button>' +
             '<div class="t"><div class="en">Christmas<br>Cabin</div><p>May your Christmas be warm and bright.</p></div></div>' +
             '<div class="panel"><div class="cd"><i>✦</i>' + daysLine() + '<i>✦</i></div>' + cards +
-            '<div class="decor"><img src="' + R.base + 'images/decor-bottom.webp" alt="" onerror="this.remove()"><div class="mc">✦ Merry Christmas ✦</div></div></div>';
+            '<div class="decor"><img src="' + R.base + 'decor-bottom.webp" alt="" onerror="this.remove()"><div class="mc">✦ Merry Christmas ✦</div></div></div>';
         }
       };
     }

@@ -1,6 +1,7 @@
 /* 圣诞小屋 v1.2.0 — 核心文件（入口）
  * 负责：加载模块、共享状态、AI 调用（流式可选）、后台任务、路由、事件分发
  * 界面和功能都在 modules/ 里，哪里不对改哪个文件：
+ *   （所有文件都直接放在仓库最外层，不用文件夹）
  *   theme 材质样式 · home 主页 · settings 设置页 · cert 好孩子名单 · gift 礼物盲盒 · mail 圣诞信箱 · santa 神秘圣诞老人
  */
 (function () {
@@ -34,7 +35,7 @@
   var loading = null;
   function loadAll() {
     if (!loading) loading = (async function () {
-      for (var i = 0; i < MODULES.length; i++) R.status[MODULES[i]] = await loadScript(BASE + "modules/" + MODULES[i] + ".js?v=" + VER);
+      for (var i = 0; i < MODULES.length; i++) R.status[MODULES[i]] = await loadScript(BASE + MODULES[i] + ".js?v=" + VER);
     })();
     return loading;
   }
@@ -207,7 +208,7 @@
             '<div class="ttl"><div class="en">' + en + '</div><div class="zh">' + zh + '</div></div></div><div class="sheet">' + inner + '</div></div>';
         }
         function icon(name, svg) {
-          return '<span class="ico">' + (svg || "") + '<img src="' + R.base + 'images/icon-' + name + '.webp" alt="" onerror="this.remove()"></span>';
+          return '<span class="ico">' + (svg || "") + '<img src="' + R.base + 'icon-' + name + '.webp" alt="" onerror="this.remove()"></span>';
         }
         function picker(multi) {
           if (!st.chars.length) return '<p class="hint">还没有角色，请先在 Roche 里创建一个角色。</p>';
@@ -236,6 +237,7 @@
           var h = handlers[st.view], html;
           try { html = h && h.view ? h.view() : null; } catch (e) { html = null; st.errs.push(st.view + "：" + (e && e.message || e)); }
           if (html == null) html = '<div class="pg"><div class="sheet"><p>这个页面出错了（模块：' + esc(st.view) + '）。<br>' +
+            '文件加载情况：' + Object.keys(R.status).map(function (k) { return (R.status[k] ? "✓" : "✗") + k; }).join(" ") + '<br>' +
             esc(st.errs.slice(-2).join("；")) + '</p><div class="center"><button class="btn" data-act="core.go" data-v="home">回主页</button></div></div></div>';
           view.innerHTML = html;
           st.anim = null;
