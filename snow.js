@@ -1,11 +1,14 @@
 /* snow.js — 雪仗：回合制（我方防守 / 我方进攻），5 颗心，最多 8 回合
  * 台词：进入前一次性预生成并缓存（每个角色只花一次钱），游戏中按事件类型挑，所以台词和画面一定对得上
- * 形象：对手用角色头像，我方用你的人设头像；不用生图 */
+ * 形象：对手用角色头像，我方用你的人设头像；不用生图
+ * v1.4.1 第一批改动：画布加长 / 开战前先讲规则 / 「打这边」箭头提示 / 心碎动画 / 雪球弧线轨迹+拖尾 / 砸偏飞溅 */
 (function () {
   "use strict";
   var R = window.RCC;
   var LANE = [27, 73];                 // 左右两条路的横向位置（%）
   var MAX_ROUND = 8;
+  var AH = 520;                        // 画布高度（px），要和下面 CSS 的 .arena 高度一致
+  var Y = { oppBall: 118, oppHit: 112, meBall: 384, meHit: 412, mark: 430 };   // 雪球起点/落点的纵向位置（px）
   var EV = { start: "开局", throw: "出手扔雪球", dodge: "我方躲开了", hit: "打中了我方", gotHit: "被我方打中", miss: "我方扔偏了", oppWin: "你赢了整场", oppLose: "你输了整场" };
   var DEF = {
     start: ["准备好了吗？", "来打雪仗吧！", "别想跑！"], throw: ["接招！", "看球！", "小心啦！"],
@@ -15,33 +18,66 @@
   };
   var SVG = '<svg viewBox="0 0 48 48" fill="none" stroke="#8a5a1c" stroke-width="2.2"><circle cx="24" cy="30" r="12" fill="rgba(255,255,255,.7)"/><circle cx="24" cy="14" r="8" fill="rgba(255,255,255,.7)"/><path d="M22 14h5" stroke="#c9742a"/></svg>';
   function heart(on) { return '<svg viewBox="0 0 24 24" width="17" height="17"><path d="M12 21s-8-5.6-8-11a4.5 4.5 0 018-2.8A4.5 4.5 0 0120 10c0 5.4-8 11-8 11z" fill="' + (on ? "#c23a4c" : "rgba(60,40,20,.25)") + '" stroke="' + (on ? "#6e1522" : "rgba(60,40,20,.4)") + '" stroke-width="1"/></svg>'; }
+  // 刚掉的那颗心：底下是灰心，红心裂成两半掉下去
+  function brokenHeart() { return '<span class="hbk">' + heart(false) + '<span class="hl">' + heart(true) + '</span><span class="hr">' + heart(true) + '</span></span>'; }
+  // 飞溅：一圈雪粒 + 一滩雪渍
+  function splatHtml(x, y) {
+    var s = '<div class="spl" style="left:' + x + '%;top:' + y + 'px"><b></b>';
+    for (var i = 0; i < 8; i++) {
+      var a = (i / 8) * Math.PI * 2 + Math.random() * 0.5, d = 22 + Math.random() * 22;
+      s += '<i style="--dx:' + Math.round(Math.cos(a) * d) + 'px;--dy:' + Math.round(Math.sin(a) * d * 0.8 - 6) + 'px"></i>';
+    }
+    return s + '</div>';
+  }
 
   var CSS = `
-.rcc .arena{position:relative;height:430px;border-radius:12px;overflow:hidden;background:linear-gradient(#8fa8cf 0%,#d6e2f2 52%,#f6f9fc 53%,#dfe8f2 100%);box-shadow:inset 0 0 22px rgba(50,70,110,.4),0 0 0 2px #5a3a20}
+.rcc .arena{position:relative;height:520px;border-radius:12px;overflow:hidden;background:linear-gradient(#8fa8cf 0%,#d6e2f2 52%,#f6f9fc 53%,#dfe8f2 100%);box-shadow:inset 0 0 22px rgba(50,70,110,.4),0 0 0 2px #5a3a20}
 .rcc .arena .hill{position:absolute;left:-10%;right:-10%;top:44%;height:60px;border-radius:50%;background:#fff;box-shadow:0 -4px 10px rgba(120,150,190,.25)}
 .rcc .rb{position:absolute;left:8px;top:8px;z-index:5;padding:3px 12px;border-radius:8px;font-size:12px;color:#3a2410;background:#f3e7c6;box-shadow:0 0 0 2px #5a3a20,0 2px 4px rgba(0,0,0,.4)}
-.rcc .hp{position:absolute;z-index:5;display:flex;gap:1px;padding:3px 7px;border-radius:12px;background:rgba(255,255,255,.75);font-size:11px;align-items:center;gap:3px;color:#3a2410}
+.rcc .hp{position:absolute;z-index:5;display:flex;padding:3px 7px;border-radius:12px;background:rgba(255,255,255,.75);font-size:11px;align-items:center;gap:3px;color:#3a2410}
 .rcc .hp.o{right:8px;top:8px}.rcc .hp.m{left:8px;bottom:8px}
+.rcc .hbk{position:relative;display:inline-block;width:17px;height:17px}
+.rcc .hbk svg{display:block}
+.rcc .hbk .hl,.rcc .hbk .hr{position:absolute;inset:0}
+.rcc .hbk .hl{clip-path:inset(0 50% 0 0);animation:rcc-hl .9s ease-in forwards}
+.rcc .hbk .hr{clip-path:inset(0 0 0 50%);animation:rcc-hr .9s ease-in forwards}
+@keyframes rcc-hl{0%{transform:scale(1)}25%{transform:scale(1.6)}100%{transform:translate(-7px,12px) rotate(-30deg);opacity:0}}
+@keyframes rcc-hr{0%{transform:scale(1)}25%{transform:scale(1.6)}100%{transform:translate(7px,12px) rotate(30deg);opacity:0}}
 .rcc .av2{position:absolute;z-index:3;transform:translateX(-50%);border-radius:50%;overflow:hidden;display:grid;place-items:center;background:#6a4a2a;color:#f3e6c8;font-size:26px;border:3px solid #fff;box-shadow:0 4px 8px rgba(40,60,100,.5);transition:left .25s ease}
-.rcc .av2.o{top:62px;width:66px;height:66px}.rcc .av2.m{top:285px;width:78px;height:78px}
+.rcc .av2.o{top:62px;width:66px;height:66px}.rcc .av2.m{top:375px;width:78px;height:78px}
 .rcc .av2 img{width:100%;height:100%;object-fit:cover}
 .rcc .av2.shake{animation:rcc-shake .5s}
 @keyframes rcc-shake{20%{margin-left:-8px}40%{margin-left:8px}60%{margin-left:-5px}80%{margin-left:4px}}
 .rcc .splat{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 40% 40%,#fff 0 45%,rgba(255,255,255,.7) 60%,transparent 72%);animation:rcc-splat .7s ease-out forwards}
 @keyframes rcc-splat{from{transform:scale(.3);opacity:1}to{transform:scale(1.15);opacity:.9}}
 .rcc .mound{position:absolute;z-index:2;width:92px;height:34px;border-radius:50%;background:radial-gradient(#fff,#e3ebf5);transform:translateX(-50%);box-shadow:0 3px 6px rgba(60,90,140,.35)}
-.rcc .ball{position:absolute;z-index:4;width:26px;height:26px;border-radius:50%;transform:translate(-50%,-50%);background:radial-gradient(circle at 35% 30%,#fff,#e1e9f3 65%,#b4c4da);box-shadow:0 3px 5px rgba(50,80,120,.5)}
+.rcc .ball{position:absolute;z-index:4;width:26px;height:26px;border-radius:50%;transform:translate(-50%,-50%);background:radial-gradient(circle at 35% 30%,#fff,#e1e9f3 65%,#b4c4da);box-shadow:inset -3px -3px 5px rgba(120,150,190,.5),0 3px 5px rgba(50,80,120,.4)}
+.rcc .bsh{position:absolute;z-index:1;width:22px;height:8px;border-radius:50%;transform:translate(-50%,-50%);background:rgba(50,70,110,.35)}
+.rcc .trail{position:absolute;z-index:3;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:rgba(255,255,255,.9);animation:rcc-trail .5s ease-out forwards;pointer-events:none}
+@keyframes rcc-trail{to{transform:scale(.2);opacity:0}}
+.rcc .spl{position:absolute;z-index:4;width:0;height:0;pointer-events:none}
+.rcc .spl b{position:absolute;left:-22px;top:-8px;width:44px;height:16px;border-radius:50%;background:radial-gradient(#fff 40%,rgba(255,255,255,.6) 70%,transparent 72%);animation:rcc-stain 1.2s ease-out forwards}
+@keyframes rcc-stain{from{transform:scale(.3);opacity:1}30%{transform:scale(1.1)}to{transform:scale(1.25);opacity:.15}}
+.rcc .spl i{position:absolute;left:-4px;top:-4px;width:9px;height:9px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(60,90,140,.4);animation:rcc-pt .65s ease-out forwards}
+@keyframes rcc-pt{from{transform:translate(0,0) scale(1)}to{transform:translate(var(--dx),var(--dy)) scale(.3);opacity:0}}
 .rcc .mark{position:absolute;z-index:2;width:58px;height:18px;border-radius:50%;transform:translateX(-50%);background:rgba(163,41,58,.28);border:2px solid rgba(163,41,58,.75);transition:left .18s}
-.rcc .tell{position:absolute;z-index:4;top:38px;transform:translateX(-50%);padding:2px 9px;border-radius:10px;font-size:12px;background:#fff;color:#a3293a;animation:rcc-pulse .5s ease-in-out infinite}
+.rcc .tell{position:absolute;z-index:4;top:30px;transform:translateX(-50%);padding:3px 11px;border-radius:12px;font-size:13px;font-weight:600;white-space:nowrap;background:#fff;color:#a3293a;box-shadow:0 2px 5px rgba(40,60,100,.35);animation:rcc-bob .55s ease-in-out infinite}
+@keyframes rcc-bob{50%{transform:translateX(-50%) translateY(6px)}}
 .rcc .bubble{position:absolute;z-index:6;left:50%;top:42px;transform:translateX(-50%);max-width:70%;padding:6px 12px;border-radius:14px;background:#fff;color:#3a2410;font-size:13px;box-shadow:0 3px 8px rgba(40,60,100,.4);text-align:center}
 .rcc .res{position:absolute;inset:0;z-index:7;display:grid;place-content:center;gap:10px;text-align:center;background:rgba(20,30,50,.55);color:#fff}
 .rcc .res h3{margin:0;font-size:34px;font-weight:400;text-shadow:0 2px 6px rgba(0,0,0,.6)}
 .rcc .res .bubble{position:static;transform:none;margin:0 auto}
 .rcc .two{display:flex;gap:14px;margin-top:14px}
 .rcc .two .btn{flex:1;padding:14px 0;font-size:16px}
+.rcc .gh{text-align:center;margin:10px 0 0;font-size:14px;font-weight:600;color:var(--ink);min-height:22px}
 .rcc .meta{display:flex;align-items:center;gap:12px;margin:8px 0 4px}
 .rcc .meta .a{width:44px;height:44px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:#6a4a2a;color:#f3e6c8;box-shadow:0 0 0 2px #d9a63a,0 2px 4px rgba(0,0,0,.4)}
 .rcc .meta .a img{width:100%;height:100%;object-fit:cover}
+.rcc .rl{list-style:none;margin:0;padding:0}
+.rcc .rl li{display:flex;gap:12px;padding:12px 0;border-bottom:1px dashed rgba(90,58,24,.4)}
+.rcc .rl i{flex:0 0 28px;height:28px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-weight:600;color:#4a2a07;background:radial-gradient(circle at 32% 28%,#fff1b8,#e3b341 40%,#a8741c)}
+.rcc .rl b{display:block}
+.rcc .rl small{display:block;color:var(--soft);font-size:13px;line-height:1.6}
 `;
 
   R.add({
@@ -49,10 +85,10 @@
     home: { order: 6, en: "Snowball Fight", zh: "雪 仗", desc: "和角色打一场回合制雪仗", icon: "snow", svg: SVG },
     create: function (ctx) {
       var st = ctx.st, roche = ctx.roche, e = ctx.esc;
-      var game = null, timers = [], lineMsg = "";
+      var game = null, timers = [], lineMsg = "", rules = null, trailT = null;
 
       function later(fn, ms) { var t = setTimeout(fn, ms); timers.push(t); return t; }
-      function clearAll() { timers.forEach(clearTimeout); timers = []; }
+      function clearAll() { timers.forEach(clearTimeout); timers = []; if (trailT) { clearInterval(trailT); trailT = null; } }
       function rnd() { return Math.random(); }
       function lines(c) { return (st.d.snowLines && st.d.snowLines[c.id]) || null; }
       function stats() { return st.d.snowStats || { win: 0, lose: 0 }; }
@@ -63,50 +99,80 @@
         game.bubble = String(arr[Math.floor(rnd() * arr.length)]).slice(0, 24);
       }
 
+      // ---------- 雪球飞行：弧线 + 变大变小（模拟抛高）+ 影子 + 拖尾 ----------
+      function fly(by, dur) {
+        var b = el(".ball"), sh = el(".bsh"), arena = el(".arena");
+        if (!b || !b.animate) return;
+        var down = by === "opp", y0 = down ? Y.oppBall : Y.meBall, y1 = down ? Y.meHit : Y.oppHit;
+        var kb = [], ks = [], N = 10, i;
+        for (i = 0; i <= N; i++) {
+          var t = i / N, hump = 4 * t * (1 - t), gy = y0 + (y1 - y0) * t;
+          kb.push({ offset: t, top: (gy - hump * 70) + "px", transform: "translate(-50%,-50%) scale(" + (0.75 + hump * 0.65) + ") rotate(" + (t * 360) + "deg)" });
+          ks.push({ offset: t, top: (gy + 12) + "px", opacity: 0.45 - hump * 0.2, transform: "translate(-50%,-50%) scale(" + (1.1 - hump * 0.5) + ")" });
+        }
+        var opt = { duration: dur, easing: down ? "cubic-bezier(.35,0,.85,.7)" : "cubic-bezier(.1,.4,.5,1)", fill: "forwards" };
+        b.animate(kb, opt);
+        if (sh) sh.animate(ks, opt);
+        if (trailT) clearInterval(trailT);
+        var n = 0;
+        trailT = setInterval(function () {
+          n++;
+          var bb = el(".ball"), ar = el(".arena");
+          if (!bb || !ar || n * 45 > dur) { clearInterval(trailT); trailT = null; return; }
+          var r1 = bb.getBoundingClientRect(), r2 = ar.getBoundingClientRect(), d = document.createElement("i");
+          d.className = "trail";
+          d.style.left = (r1.left + r1.width / 2 - r2.left) + "px"; d.style.top = (r1.top + r1.height / 2 - r2.top) + "px";
+          d.addEventListener("animationend", function () { d.remove(); });
+          ar.appendChild(d);
+        }, 45);
+      }
+
       // ---------- 回合流程 ----------
       function start(c) {
         clearAll();
-        game = { c: c, turn: null, round: 1, hp: { me: 5, opp: 5 }, phase: "intro", lane: { me: rnd() < 0.5 ? 0 : 1, opp: rnd() < 0.5 ? 0 : 1 }, bubble: "", fx: null, ball: null, tell: null, over: null };
+        game = { c: c, turn: null, round: 1, hp: { me: 5, opp: 5 }, phase: "intro", lane: { me: rnd() < 0.5 ? 0 : 1, opp: rnd() < 0.5 ? 0 : 1 }, bubble: "", fx: null, ball: null, tell: null, over: null, splat: null, lost: null };
         say("start"); ctx.render(); later(beginDefend, 1500);
       }
       function dur() { return Math.max(850, 1500 - (game.round - 1) * 110); }
       function beginDefend() {
-        game.phase = "defend"; game.turn = "defend"; game.fx = null;
+        game.phase = "defend"; game.turn = "defend"; game.fx = null; game.splat = null;
         game.ball = { by: "opp", lane: rnd() < 0.5 ? 0 : 1, dur: dur() };
         say("throw"); ctx.render();
-        later(function () { var b = el(".ball"); if (b) b.style.top = "66%"; }, 40);
+        later(function () { fly("opp", game.ball.dur); }, 30);
         var feint = game.round >= 3 ? 0.45 : (game.round === 2 ? 0.2 : 0);
-        if (rnd() < feint) later(function () { game.ball.lane = 1 - game.ball.lane; var b = el(".ball"), m = el(".mark"); if (b) b.style.left = LANE[game.ball.lane] + "%"; if (m) m.style.left = LANE[game.ball.lane] + "%"; }, game.ball.dur * 0.5);
+        if (rnd() < feint) later(function () { game.ball.lane = 1 - game.ball.lane; var b = el(".ball"), m = el(".mark"), s = el(".bsh"); if (b) b.style.left = LANE[game.ball.lane] + "%"; if (s) s.style.left = LANE[game.ball.lane] + "%"; if (m) m.style.left = LANE[game.ball.lane] + "%"; }, game.ball.dur * 0.5);
         later(resolveDefend, game.ball.dur + 80);
       }
       function resolveDefend() {
-        var hit = game.lane.me === game.ball.lane;
-        game.phase = "after"; game.ball = null;
-        if (hit) { game.hp.me--; game.fx = "me"; say("hit"); } else say("dodge");
+        var bl = game.ball.lane, hit = game.lane.me === bl;
+        game.phase = "after"; game.ball = null; game.splat = null; game.lost = null;
+        if (hit) { game.hp.me--; game.fx = "me"; game.lost = "me"; say("hit"); }
+        else { game.splat = { x: LANE[bl], y: Y.meHit + 34 }; say("dodge"); }
         ctx.render();
-        later(function () { game.fx = null; if (game.hp.me <= 0) return finish("lose"); beginAttack(); }, 1400);
+        later(function () { game.fx = null; game.splat = null; game.lost = null; if (game.hp.me <= 0) return finish("lose"); beginAttack(); }, 1400);
       }
       function beginAttack() {
         game.phase = "attack"; game.turn = "attack"; game.aim = null; game.bubble = ""; game.F = rnd() < 0.5 ? 0 : 1;
         game.tell = rnd() < 0.7 ? game.F : 1 - game.F;       // 70% 的概率提示是真的
         ctx.render();
-        later(function () { game.tell = null; if (game.phase === "attack") ctx.render(); }, 1100);
+        later(function () { game.tell = null; if (game.phase === "attack") ctx.render(); }, 1300);
         later(function () { if (game.phase === "attack" && game.aim == null) aim(rnd() < 0.5 ? 0 : 1); }, 2800);
       }
       function aim(l) {
         game.aim = l; game.phase = "flight"; game.tell = null;
         game.ball = { by: "me", lane: l, dur: 700 }; ctx.render();
-        later(function () { var b = el(".ball"); if (b) b.style.top = "27%"; }, 40);
+        later(function () { fly("me", 700); }, 30);
         later(function () { game.lane.opp = game.F; var o = el(".av2.o"), md = ctx.view.querySelectorAll(".mound"); if (o) o.style.left = LANE[game.F] + "%"; if (md[0]) md[0].style.left = LANE[game.F] + "%"; }, 260);
         later(resolveAttack, 780);
       }
       function resolveAttack() {
         var hit = game.aim === game.F;
-        game.phase = "after"; game.ball = null;
-        if (hit) { game.hp.opp--; game.fx = "opp"; say("gotHit"); } else say("miss");
+        game.phase = "after"; game.ball = null; game.splat = null; game.lost = null;
+        if (hit) { game.hp.opp--; game.fx = "opp"; game.lost = "opp"; say("gotHit"); }
+        else { game.splat = { x: LANE[game.aim], y: Y.oppHit - 14 }; say("miss"); }
         ctx.render();
         later(function () {
-          game.fx = null;
+          game.fx = null; game.splat = null; game.lost = null;
           if (game.hp.opp <= 0) return finish("win");
           if (game.round >= MAX_ROUND) return finish(game.hp.me > game.hp.opp ? "win" : (game.hp.me < game.hp.opp ? "lose" : "draw"));
           game.round++; beginDefend();
@@ -124,20 +190,22 @@
       function arenaHtml() {
         var g = game, c = g.c, ph = g.phase, u = st.user || {};
         var turn = g.turn === "defend" ? "我方防守" : (g.turn === "attack" ? "我方进攻" : "准备");
-        var hearts = function (n) { var s = ""; for (var i = 0; i < 5; i++) s += heart(i < n); return s; };
+        var hearts = function (n, side) { var s = ""; for (var i = 0; i < 5; i++) s += (g.lost === side && i === n) ? brokenHeart() : heart(i < n); return s; };
         var h = '<div class="arena"><div class="hill"></div><div class="rb">第 ' + g.round + '/' + MAX_ROUND + ' 回合 · ' + turn + '</div>' +
-          '<div class="hp o">' + e(ctx.nm(c)) + ' ' + hearts(g.hp.opp) + '</div>' +
+          '<div class="hp o">' + e(ctx.nm(c)) + ' ' + hearts(g.hp.opp, "opp") + '</div>' +
           '<div class="mound" style="left:' + LANE[g.lane.opp] + '%;top:112px"></div>' +
           '<div class="av2 o' + (g.fx === "opp" ? " shake" : "") + '" style="left:' + LANE[g.lane.opp] + '%">' + avatar(c.avatar, ctx.nm(c)) + (g.fx === "opp" ? '<i class="splat"></i>' : "") + '</div>' +
-          '<div class="mound" style="left:' + LANE[g.lane.me] + '%;top:352px"></div>' +
+          '<div class="mound" style="left:' + LANE[g.lane.me] + '%;top:442px"></div>' +
           '<div class="av2 m' + (g.fx === "me" ? " shake" : "") + '" style="left:' + LANE[g.lane.me] + '%">' + avatar(u.avatar, ctx.userName()) + (g.fx === "me" ? '<i class="splat"></i>' : "") + '</div>' +
-          '<div class="hp m">' + e(ctx.userName()) + ' ' + hearts(g.hp.me) + '</div>';
+          '<div class="hp m">' + e(ctx.userName()) + ' ' + hearts(g.hp.me, "me") + '</div>';
         if (g.ball) {
-          var b = g.ball, down = b.by === "opp";
-          h += '<div class="ball" style="left:' + LANE[b.lane] + '%;top:' + (down ? 27 : 66) + '%;transition:top ' + b.dur + 'ms linear,left .18s"></div>';
-          if (down) h += '<div class="mark" style="left:' + LANE[b.lane] + '%;top:72%"></div>';
+          var b = g.ball, down = b.by === "opp", y0 = down ? Y.oppBall : Y.meBall;
+          h += '<div class="bsh" style="left:' + LANE[b.lane] + '%;top:' + (y0 + 12) + 'px;transition:left .18s"></div>' +
+            '<div class="ball" style="left:' + LANE[b.lane] + '%;top:' + y0 + 'px;transition:left .18s"></div>';
+          if (down) h += '<div class="mark" style="left:' + LANE[b.lane] + '%;top:' + Y.mark + 'px"></div>';
         }
-        if (g.tell != null) h += '<div class="tell" style="left:' + LANE[g.tell] + '%">盯着这边…</div>';
+        if (g.splat) h += splatHtml(g.splat.x, g.splat.y);
+        if (g.tell != null) h += '<div class="tell" style="left:' + LANE[g.tell] + '%">↓ 打这边</div>';
         if (g.bubble && !g.over) h += '<div class="bubble">' + e(g.bubble) + '</div>';
         if (g.over) {
           var t = g.over === "win" ? "你赢啦" : (g.over === "lose" ? "你输了" : "平局");
@@ -146,17 +214,26 @@
         }
         h += '</div>';
         var def = ph === "defend", att = ph === "attack";
-        h += '<div class="two"><button class="btn" data-act="snow.lane" data-l="0"' + (def || att ? "" : " disabled") + '>' + (att ? "← 瞄左边" : "← 往左躲") + '</button>' +
-          '<button class="btn" data-act="snow.lane" data-l="1"' + (def || att ? "" : " disabled") + '>' + (att ? "瞄右边 →" : "往右躲 →") + '</button></div>' +
-          '<p class="hint" style="text-align:center">' + (def ? "雪球砸来了，红圈是落点，快躲到另一边（小心它会变招）" : (att ? "留意对手的眼神提示，但它不一定说真话" : "")) + '</p>';
+        h += '<div class="two"><button class="btn" data-act="snow.lane" data-l="0"' + (def || att ? "" : " disabled") + '>' + (att ? "← 打左边" : "← 往左躲") + '</button>' +
+          '<button class="btn" data-act="snow.lane" data-l="1"' + (def || att ? "" : " disabled") + '>' + (att ? "打右边 →" : "往右躲 →") + '</button></div>' +
+          '<p class="gh">' + (def ? "红圈是落点，躲到另一边！" : (att ? "选一边打过去" : "")) + '</p>';
         return h;
+      }
+      function rulesHtml() {
+        var go = rules.c;
+        return '<ul class="rl">' +
+          '<li><i>1</i><span><b>胜负</b><small>每人 5 颗心，最多 ' + MAX_ROUND + ' 回合。先打光对方的心就赢；打满回合则心多的赢。</small></span></li>' +
+          '<li><i>2</i><span><b>我方防守</b><small>对手扔雪球，地上的红圈是落点。点下面的按钮躲到另一边。越到后面它越爱变招，球在半空会突然换边！</small></span></li>' +
+          '<li><i>3</i><span><b>我方进攻</b><small>对手会指一边说「↓ 打这边」，但它不一定说真话，大概七成是真的。点左或右，猜中它躲的那边就打中。</small></span></li>' +
+          '<li><i>4</i><span><b>被打中</b><small>会碎掉一颗心。雪球扔偏了，就会砸在后面的雪地上。</small></span></li></ul>' +
+          '<div class="center"><button class="btn" data-act="snow.ok">' + (go ? "明白了，开战" : "知道了") + '</button></div>';
       }
       function setup() {
         var c = ctx.curChar(), L = c && lines(c), pend = c && st.jobs["snow:" + c.id], u = st.user || {}, s = stats();
         var h = ctx.picker(false) + '<div class="meta"><div class="a">' + avatar(c && c.avatar, ctx.nm(c)) + '</div><div><b>' + e(ctx.nm(c)) + '</b><small style="display:block;color:var(--soft)">对手</small></div></div>' +
           '<div class="meta"><div class="a">' + avatar(u.avatar, ctx.userName()) + '</div><div><b>' + e(ctx.userName()) + '</b><small style="display:block;color:var(--soft)">我方</small></div></div>' +
-          '<p class="hint">回合制：我方防守时躲雪球，我方进攻时猜对手往哪边躲。每人 5 颗心，最多 ' + MAX_ROUND + ' 回合。战绩：' + s.win + ' 胜 ' + s.lose + ' 负</p>' +
-          '<div class="center"><button class="btn" data-act="snow.go"' + (c ? "" : " disabled") + '>开战</button></div>';
+          '<p class="hint">每人 5 颗心，最多 ' + MAX_ROUND + ' 回合。战绩：' + s.win + ' 胜 ' + s.lose + ' 负</p>' +
+          '<div class="center"><button class="btn" data-act="snow.go"' + (c ? "" : " disabled") + '>开战</button> <button class="btn ghost" data-act="snow.rules">玩法说明</button></div>';
         h += '<div class="center" style="margin-top:0"><button class="btn ghost sm" data-act="snow.lines"' + (pend ? " disabled" : "") + '>' + (pend ? "准备中" : (L ? "重新准备台词" : "让 TA 准备台词")) + '</button></div>' +
           '<p class="hint" style="text-align:center">' + (L ? "台词已备好，不会再花钱。" : "不准备台词也能开战，会用通用台词；准备一次要调用一次模型，之后永久缓存。") + '</p>';
         if (pend) h += ctx.wait(e(lineMsg || "正在准备台词，你可以先去别处逛逛"));
@@ -165,11 +242,21 @@
 
       return {
         destroy: clearAll,
-        back: function () { if (game) leave(); return false; },
-        view: function () { return ctx.page("Snowball Fight", "雪 仗", game ? arenaHtml() : setup()); },
+        back: function () { if (rules) { rules = null; return true; } if (game) leave(); return false; },
+        view: function () { return ctx.page("Snowball Fight", "雪 仗", game ? arenaHtml() : (rules ? rulesHtml() : setup())); },
         act: function (name, el0) {
           var c = ctx.curChar();
-          if (name === "go") { if (!c) return roche.ui.toast("请先选一个对手"); return start(c); }
+          if (name === "go") {
+            if (!c) return roche.ui.toast("请先选一个对手");
+            if (!st.d.snowSeen) { rules = { c: c }; return ctx.render(); }   // 第一次开战先讲规则
+            return start(c);
+          }
+          if (name === "rules") { rules = { c: null }; return ctx.render(); }
+          if (name === "ok") {
+            var cc = rules && rules.c; rules = null;
+            if (!st.d.snowSeen) { st.d.snowSeen = true; ctx.save(); }
+            return cc ? start(cc) : ctx.render();
+          }
           if (name === "again") { var c2 = game && game.c; leave(); return c2 ? start(c2) : ctx.render(); }
           if (name === "lane") {
             if (!game) return;
