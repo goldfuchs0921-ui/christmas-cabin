@@ -128,6 +128,7 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
       var roche = ctx.roche, st = ctx.st, e = ctx.esc;
       var shelf = "xmas", cur = null, playing = false, mini = false, audio = new Audio();
       var loopOne = false, xurls = {}, preparing = false, mine = [], murls = {}, loadingMine = false, msg = "", drag = null;
+      R.duck = function (v) { try { audio.volume = v; } catch (err) {} };
       var fl = document.createElement("div");
       fl.className = "rfl"; fl.style.display = "none"; ctx.root.appendChild(fl);
 
