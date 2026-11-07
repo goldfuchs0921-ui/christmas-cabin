@@ -1,6 +1,7 @@
 /* snow.js — 雪仗：回合制（我方防守 / 我方进攻），5 颗心，最多 8 回合
  * 台词：进入前一次性预生成并缓存（每个角色只花一次钱），游戏中按事件类型挑，所以台词和画面一定对得上
  * 形象：对手用角色头像，我方用你的人设头像；不用生图
+ * v1.4.4：3a 修正（对战页整理/滑块改木推子/白雪球+雪团拖尾/台词视角重写）
  * v1.4.3（第三批 3a）：开战前对战页（左右对抗+VS）/ 灯串接边缘+灯泡各自晃 / 更精致的摆件 / 蓄力动画（我方蓝白、对手红）
  *   进攻要等蓄满才能点 / 防守落地前锁定位置 / 瞄准后对手会反应 / 球红蓝光晕+拖尾 / 台词放到打完之后 / 音量滑块 */
 (function () {
@@ -9,7 +10,7 @@
   var LANE = [27, 73];                 // 左右两条路的横向位置（%）
   var MAX_ROUND = 8;
   var Y = { oppBall: 116, oppHit: 108, meBall: 384, meHit: 412, mark: 430 };   // 雪球起点/落点的纵向位置（px）
-  var EV = { start: "开局", throw: "出手扔雪球", dodge: "我方躲开了", hit: "打中了我方", gotHit: "被我方打中", miss: "我方扔偏了", oppWin: "你赢了整场", oppLose: "你输了整场" };
+  var EV = { start: "雪仗刚开始，你说开场白", throw: "你正要把雪球扔向对方", dodge: "你扔的雪球被对方躲开了，没打中", hit: "你扔的雪球打中了对方", gotHit: "对方扔的雪球打中了你", miss: "对方扔偏了，没打中你", oppWin: "整场雪仗你赢了（对方输了）", oppLose: "整场雪仗你输了（对方赢了）" };
   var DEF = {
     start: ["准备好了吗？", "来打雪仗吧！", "别想跑！"], throw: ["接招！", "看球！", "小心啦！"],
     dodge: ["哎，躲开了！", "溜得真快！", "下次一定！"], hit: ["打中啦！", "漂亮！", "嘿嘿，中了！"],
@@ -300,13 +301,9 @@
 .rcc .mound{position:absolute;z-index:2;width:92px;height:34px;border-radius:50%;background:radial-gradient(#fff,#e3ebf5);transform:translateX(-50%);box-shadow:0 3px 6px rgba(60,90,140,.35)}
 .rcc .mound.o{width:80px;height:30px}
 .rcc .ball{position:absolute;z-index:4;width:26px;height:26px;border-radius:50%;transform:translate(-50%,-50%)}
-.rcc .ball.o{background:radial-gradient(circle at 35% 30%,#fff3f3,#f0b9bf 60%,#c25a68);box-shadow:inset -3px -3px 5px rgba(150,40,60,.45),0 0 12px 5px rgba(200,62,80,.55),0 3px 5px rgba(80,30,40,.4)}
-.rcc .ball.m{background:radial-gradient(circle at 35% 30%,#fff,#dcecff 60%,#9cc4f2);box-shadow:inset -3px -3px 5px rgba(80,130,200,.45),0 0 12px 5px rgba(110,175,245,.65),0 3px 5px rgba(50,80,120,.4)}
+.rcc .ball.o,.rcc .ball.m{background:radial-gradient(circle at 35% 30%,#fff,#eef3fa 55%,#b9c9e2);box-shadow:inset -2px -3px 4px rgba(90,120,170,.35),0 2px 3px rgba(50,70,110,.3)}
 .rcc .bsh{position:absolute;z-index:1;width:22px;height:8px;border-radius:50%;transform:translate(-50%,-50%);background:rgba(50,70,110,.35)}
-.rcc .trail{position:absolute;z-index:3;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;animation:rcc-trail .55s ease-out forwards;pointer-events:none}
-.rcc .trail.o{background:rgba(214,88,104,.85);box-shadow:0 0 8px rgba(214,88,104,.7)}
-.rcc .trail.m{background:rgba(150,205,252,.9);box-shadow:0 0 8px rgba(130,190,250,.7)}
-@keyframes rcc-trail{to{transform:scale(.15);opacity:0}}
+.rcc .trail{position:absolute;z-index:3;background:radial-gradient(circle at 35% 30%,#fff,#e4ecf7);box-shadow:0 1px 2px rgba(60,90,140,.35);pointer-events:none}
 .rcc .spl{position:absolute;z-index:4;width:0;height:0;pointer-events:none}
 .rcc .spl b{position:absolute;left:-22px;top:-8px;width:44px;height:16px;border-radius:50%;background:radial-gradient(#fff 40%,rgba(255,255,255,.6) 70%,transparent 72%);animation:rcc-stain 1.2s ease-out forwards}
 @keyframes rcc-stain{from{transform:scale(.3);opacity:1}30%{transform:scale(1.1)}to{transform:scale(1.25);opacity:.15}}
@@ -344,7 +341,14 @@
 .rcc .vol{display:grid;gap:8px;padding:10px 14px;border-radius:10px;background:rgba(255,248,230,.35);box-shadow:inset 0 2px 4px rgba(90,58,24,.25)}
 .rcc .vol label{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--soft)}
 .rcc .vol label span{flex:0 0 34px}
-.rcc .vol input{flex:1;min-width:0;accent-color:#a8741c}
+.rcc .vol input{flex:1;min-width:0;height:24px;margin:0;background:transparent;-webkit-appearance:none;appearance:none}
+.rcc .vol input::-webkit-slider-runnable-track{height:2px;background:#8a6a45;border-radius:1px}
+.rcc .vol input::-moz-range-track{height:2px;background:#8a6a45;border-radius:1px}
+.rcc .vol input::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:22px;margin-top:-10px;border-radius:2px;border:1px solid #3c2410;background:repeating-linear-gradient(90deg,rgba(60,36,16,.18) 0 1px,transparent 1px 3px),linear-gradient(90deg,#b78652,#9a6c3b 55%,#6e4724);box-shadow:inset 0 1px 0 rgba(255,235,190,.5),0 2px 3px rgba(0,0,0,.45)}
+.rcc .vol input::-moz-range-thumb{width:10px;height:20px;border-radius:2px;border:1px solid #3c2410;background:linear-gradient(90deg,#b78652,#9a6c3b 55%,#6e4724);box-shadow:inset 0 1px 0 rgba(255,235,190,.5),0 2px 3px rgba(0,0,0,.45)}
+.rcc .vol input:disabled{opacity:.4}
+.rcc .sel-zone{padding:0 0 8px;margin:0 0 14px;border-bottom:1px solid rgba(90,58,24,.45);box-shadow:0 1px 0 rgba(255,248,230,.5)}
+.rcc .vs-zone{padding:14px 10px 12px;border-radius:12px;background:rgba(120,80,30,.14);box-shadow:inset 0 3px 8px rgba(90,58,24,.32),inset 0 0 0 1px rgba(90,58,24,.25)}
 .rcc .vol em{flex:0 0 38px;font-style:normal;text-align:right}
 .rcc .vol small{color:var(--soft);font-size:12px}
 .rcc .rl{list-style:none;margin:0;padding:0}
@@ -363,7 +367,7 @@
       var game = null, timers = [], lineMsg = "", rules = null, trailT = null, duckT = null;
 
       function later(fn, ms) { var t = setTimeout(fn, ms); timers.push(t); return t; }
-      function clearAll() { timers.forEach(clearTimeout); timers = []; if (trailT) { clearInterval(trailT); trailT = null; } unduck(); }
+      function clearAll() { timers.forEach(clearTimeout); timers = []; if (trailT) { cancelAnimationFrame(trailT); trailT = null; } unduck(); }
       function rnd() { return Math.random(); }
       function lines(c) { return (st.d.snowLines && st.d.snowLines[c.id]) || null; }
       function stats() { return st.d.snowStats || { win: 0, lose: 0 }; }
@@ -375,7 +379,7 @@
       }
 
       // ---------- 音量 / 音效开关 / 压低唱片机音乐 ----------
-      function soundOn() { return st.d.snowSound !== false; }
+      function soundOn() { return sfxVol() > 0; }
       function sfxVol() { return st.d.snowSfx == null ? 100 : st.d.snowSfx; }
       function musicVol() { return st.d.snowMusic == null ? 100 : st.d.snowMusic; }
       function snd(name, a, b) { if (soundOn()) SFX[name](a, b); }
@@ -421,6 +425,21 @@
       }
       function spawnBall() { var ar = el(".arena"); if (ar && game.ball) ar.insertAdjacentHTML("beforeend", ballHtml()); }
 
+      // 拖尾雪团：随机位置/大小/不规则边缘，边缩小边往下掉（越掉越快）
+      function spawnPuff(ar, x, y) {
+        var d = document.createElement("i"), sz = 4 + rnd() * 7, vx = (rnd() - 0.5) * 26, g = 70 + rnd() * 60, T = 550 + rnd() * 350;
+        function rr() { return Math.round(35 + rnd() * 30) + "%"; }
+        d.className = "trail";
+        d.style.cssText = "left:" + (x + (rnd() - 0.5) * 10).toFixed(1) + "px;top:" + (y + (rnd() - 0.5) * 10).toFixed(1) + "px;width:" + sz.toFixed(1) + "px;height:" + sz.toFixed(1) +
+          "px;margin:-" + (sz / 2).toFixed(1) + "px 0 0 -" + (sz / 2).toFixed(1) + "px;border-radius:" + rr() + " " + rr() + " " + rr() + " " + rr() + " / " + rr() + " " + rr() + " " + rr() + " " + rr();
+        ar.appendChild(d);
+        if (!d.animate) { setTimeout(function () { d.remove(); }, T); return; }
+        var kf = [], N = 6, i;
+        for (i = 0; i <= N; i++) { var t = i / N; kf.push({ offset: t, transform: "translate(" + (vx * t).toFixed(1) + "px," + (g * t * t).toFixed(1) + "px) scale(" + (1 - 0.85 * t).toFixed(2) + ")", opacity: 1 - 0.7 * t * t }); }
+        var an = d.animate(kf, { duration: T, easing: "linear", fill: "forwards" });
+        an.onfinish = function () { d.remove(); };
+      }
+
       // ---------- 雪球飞行：弧线 + 变大变小（模拟抛高）+ 影子 + 彩色拖尾 ----------
       function fly(by, dur) {
         var b = el(".ball"), sh = el(".bsh");
@@ -435,18 +454,17 @@
         var opt = { duration: dur, easing: down ? "cubic-bezier(.35,0,.85,.7)" : "cubic-bezier(.1,.4,.5,1)", fill: "forwards" };
         b.animate(kb, opt);
         if (sh) sh.animate(ks, opt);
-        if (trailT) clearInterval(trailT);
-        var n = 0, cls = down ? "o" : "m";
-        trailT = setInterval(function () {
-          n++;
-          var bb = el(".ball"), ar = el(".arena");
-          if (!bb || !ar || n * 35 > dur) { clearInterval(trailT); trailT = null; return; }
-          var r1 = bb.getBoundingClientRect(), r2 = ar.getBoundingClientRect(), d = document.createElement("i");
-          d.className = "trail " + cls;
-          d.style.left = (r1.left + r1.width / 2 - r2.left) + "px"; d.style.top = (r1.top + r1.height / 2 - r2.top) + "px";
-          d.addEventListener("animationend", function () { d.remove(); });
-          ar.appendChild(d);
-        }, 35);
+        if (trailT) cancelAnimationFrame(trailT);
+        var t0 = performance.now(), ar = el(".arena");
+        function puffLoop(ts) {
+          if (!game || !ar || !ar.isConnected || !b.isConnected || ts - t0 > dur) { trailT = null; return; }
+          if (rnd() < 0.5) {
+            var r1 = b.getBoundingClientRect(), r2 = ar.getBoundingClientRect(), n = rnd() < 0.25 ? 2 : 1, k;
+            for (k = 0; k < n; k++) spawnPuff(ar, r1.left + r1.width / 2 - r2.left, r1.top + r1.height / 2 - r2.top);
+          }
+          trailT = requestAnimationFrame(puffLoop);
+        }
+        trailT = requestAnimationFrame(puffLoop);
       }
 
       // 砸偏时随机砸中这一侧、这一区的一个背景物件
@@ -625,17 +643,17 @@
       function setup() {
         var c = ctx.curChar(), L = c && lines(c), pend = c && st.jobs["snow:" + c.id], u = st.user || {}, s = stats();
         function side(img, name, tag, cls) { return '<div class="vs-side ' + cls + '"><div class="vs-pt">' + avatar(img, name) + '</div><b>' + e(name) + '</b><small>' + tag + '</small></div>'; }
-        var h = ctx.picker(false) + '<div class="vs-wrap">' +
+        var h = '<div class="sel-zone">' + ctx.picker(false) + '</div><div class="vs-zone"><div class="vs-wrap">' +
           '<div class="vs">' + side(u.avatar, ctx.userName(), "我 方", "L") + '<div class="vs-mk en">VS</div>' + side(c && c.avatar, ctx.nm(c), "对 手", "R") + '</div>' +
-          '<div class="vs-st"><div class="vs-rec"><i>' + s.win + '</i> 胜　<i>' + s.lose + '</i> 负</div><small>每人 5 颗心 · 最多 ' + MAX_ROUND + ' 回合 · 台词' + (L ? "已备好" : "未准备") + '</small></div>' +
+          '<div class="vs-st"><div class="vs-rec"><i>' + s.win + '</i> 胜　<i>' + s.lose + '</i> 负</div></div>' +
           '<div class="vs-btns"><button class="btn big" data-act="snow.go"' + (c ? "" : " disabled") + '>开 战</button>' +
           '<div class="vs-sub"><button class="btn ghost sm" data-act="snow.rules">玩法说明</button>' +
           '<button class="btn ghost sm" data-act="snow.lines"' + (pend ? " disabled" : "") + '>' + (pend ? "准备中" : (L ? "重新准备台词" : "准备台词")) + '</button>' +
-          '<button class="btn ghost sm" data-act="snow.snd">音效：' + (soundOn() ? "开" : "关") + '</button></div>' +
+          '</div>' +
           '<p class="vs-note">' + (L ? "台词已备好，不会再花钱。" : "不准备台词也能开战，会用通用台词；准备一次要调用一次模型，之后永久缓存。") + '</p></div>' +
           '<div class="vol"><label><span>音乐</span><input type="range" min="0" max="100" step="5" value="' + musicVol() + '" data-vol="music"' + (R.duck ? "" : " disabled") + '><em>' + musicVol() + '%</em></label>' +
           '<label><span>音效</span><input type="range" min="0" max="100" step="5" value="' + sfxVol() + '" data-vol="sfx"><em>' + sfxVol() + '%</em></label>' +
-          (R.duck ? "" : '<small>音乐音量还没接上唱片机（需要在 record.js 加一行，见更新说明）</small>') + '</div></div>';
+          (R.duck ? "" : '<small>音乐音量还没接上唱片机（需要在 record.js 加一行，见更新说明）</small>') + '</div></div></div>';
         if (pend) h += ctx.wait(e(lineMsg || "正在准备台词，你可以先去别处逛逛"));
         return h;
       }
@@ -654,11 +672,6 @@
             return start(c);
           }
           if (name === "rules") { rules = { c: null }; return ctx.render(); }
-          if (name === "snd") {
-            st.d.snowSound = !soundOn(); ctx.save();
-            if (soundOn()) { SFX.init(); SFX.tick(); }
-            return ctx.render();
-          }
           if (name === "ok") {
             var cc = rules && rules.c; rules = null;
             if (!st.d.snowSeen) { st.d.snowSeen = true; ctx.save(); }
@@ -685,10 +698,10 @@
               lineMsg = "正在组织请求（2/3）…"; ctx.render();
               var keys = Object.keys(EV).map(function (k) { return '"' + k + '":["台词","台词","台词"]'; }).join(",");
               lineMsg = "等 TA 想台词（3/3）…"; ctx.render();
-              var j = await ctx.ask(ctx.sysFor(c, l), "你要和对方打一场友好的雪仗，你是对手。请写你在雪仗里的短台词，只输出 JSON：{" + keys + "}。各键含义：" +
-                Object.keys(EV).map(function (k) { return k + "=" + EV[k]; }).join("；") + "。每个键 3 条，每条不超过 15 个字，符合你的性格，有趣；不要出现疼、痛、伤等字眼。", true);
+              var j = await ctx.ask(ctx.sysFor(c, l), "你正在和" + ctx.userName() + "打一场友好的雪仗。以下台词全部是你（角色本人）说给对方听的，注意视角：「你」指你自己，「对方」指" + ctx.userName() + "。请写你在雪仗里的短台词，只输出 JSON：{" + keys + "}。各键含义：" +
+                Object.keys(EV).map(function (k) { return k + "=" + EV[k]; }).join("；") + "。每个键 3 条，每条不超过 15 个字，符合你的性格，有趣；句末不要用句号，可以用问号、感叹号、省略号或不加标点；不要出现疼、痛、伤等字眼。", true);
               var out = {};
-              Object.keys(EV).forEach(function (k) { out[k] = (Array.isArray(j[k]) ? j[k] : []).map(function (x) { return String(x).slice(0, 24); }).filter(Boolean).slice(0, 3); });
+              Object.keys(EV).forEach(function (k) { out[k] = (Array.isArray(j[k]) ? j[k] : []).map(function (x) { return String(x).replace(/[。.]+$/, "").slice(0, 24); }).filter(Boolean).slice(0, 3); });
               st.d.snowLines = st.d.snowLines || {}; st.d.snowLines[c.id] = out; lineMsg = "";
             });
           }
