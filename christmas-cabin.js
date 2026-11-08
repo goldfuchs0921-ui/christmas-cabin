@@ -1,18 +1,18 @@
-/* 圣诞小屋 v1.5.2 — 核心文件（入口）
+/* 圣诞小屋 v1.6.0 — 核心文件（入口）
  * 负责：加载模块、共享状态、AI 调用（流式可选）、后台任务、路由、事件分发
  * 界面和功能都在 modules/ 里，哪里不对改哪个文件：
  *   （所有文件都直接放在仓库最外层，不用文件夹）
- *   theme 材质样式 · home 主页 · settings 设置页 · cert 好孩子名单 · gift 礼物盲盒 · mail 圣诞信箱 · santa 神秘圣诞老人 · record 唱片机 · snow-art 雪仗的画面与音效 · snow 雪仗
+ *   theme 材质样式 · home 主页 · settings 设置页 · worldbook 世界书选择 · cert 好孩子名单 · gift 礼物盲盒 · mail 圣诞信箱 · santa 神秘圣诞老人 · record 唱片机 · snow-art 雪仗的画面与音效 · snow 雪仗
  */
 (function () {
   "use strict";
-  var VER = "1.5.2";
+  var VER = "1.6.0";
   var BASE = "https://raw.githubusercontent.com/goldfuchs0921-ui/christmas-cabin/main/";
   try {
     var cs = document.currentScript;
     if (cs && cs.src && /christmas-cabin\.js/.test(cs.src)) BASE = cs.src.replace(/[^\/]*$/, "");
   } catch (e) { /* 用默认地址 */ }
-  var MODULES = ["theme", "home", "settings", "cert", "gift", "mail", "santa", "record", "snow-art", "snow"];
+  var MODULES = ["theme", "home", "settings", "worldbook", "cert", "gift", "mail", "santa", "record", "snow-art", "snow"];
 
   var R = window.RCC = window.RCC || {};
   R.mods = R.mods || []; R.status = R.status || {}; R.base = BASE; R.ver = VER;
@@ -33,11 +33,47 @@
     });
   }
   var loading = null;
-  function loadAll() {
+  function loadAll(onStep) {
     if (!loading) loading = (async function () {
-      for (var i = 0; i < MODULES.length; i++) R.status[MODULES[i]] = await loadScript(BASE + MODULES[i] + ".js?v=" + VER);
+      var done = 0;
+      await Promise.all(MODULES.map(function (name) {
+        return loadScript(BASE + name + ".js?v=" + VER).then(function (ok) {
+          R.status[name] = ok; done++;
+          if (onStep) onStep(done, MODULES.length, name);
+        });
+      }));
     })();
     return loading;
+  }
+  function frame() {   // 让浏览器先把进度条画出来；页面在后台时 rAF 不会走，所以加个超时兜底
+    return new Promise(function (ok) { var t = setTimeout(ok, 80); requestAnimationFrame(function () { clearTimeout(t); setTimeout(ok, 0); }); });
+  }
+  function safe(fn, fallback) { return Promise.resolve().then(fn).catch(function () { return fallback; }); }
+
+  // ---------- 加载画面：一进来就显示，不再白屏 ----------
+  var BOOT_CSS = ".rcc-boot{position:relative;height:100%;min-height:100%;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;color:#f3e6c8;font:15px/1.6 -apple-system,\"PingFang SC\",\"Noto Sans SC\",sans-serif;" +
+    "background:radial-gradient(1.5px 1.5px at 18% 22%,#fff,transparent),radial-gradient(1px 1px at 62% 14%,#fff,transparent),radial-gradient(1.5px 1.5px at 84% 30%,#fff,transparent),radial-gradient(1px 1px at 40% 38%,#fff,transparent),linear-gradient(#08122a,#1c2b55 72%,#3a3f66)}" +
+    ".rcc-boot *{box-sizing:border-box}" +
+    ".rcc-boot .t{font-family:\"Iowan Old Style\",\"Palatino\",Georgia,serif;font-style:italic;font-size:44px;line-height:1.05;text-align:center;background:linear-gradient(#fff4cf,#f1c45e 55%,#c98d26);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 6px rgba(244,184,96,.45))}" +
+    ".rcc-boot .bar{width:min(68%,260px);height:12px;border-radius:999px;background:#2c180c;box-shadow:inset 0 2px 4px rgba(0,0,0,.7),0 0 0 2px #5a3a20,0 0 0 3px rgba(255,214,150,.25);overflow:hidden}" +
+    ".rcc-boot .bar i{display:block;height:100%;width:4%;border-radius:999px;background:linear-gradient(#f9e3a0,#dba93c 52%,#b07a1e);box-shadow:0 0 8px rgba(244,184,96,.7);transition:width .25s ease}" +
+    ".rcc-boot .s{font-size:12px;letter-spacing:.18em;opacity:.8;min-height:1.6em;text-align:center}" +
+    ".rcc-boot .f{position:absolute;top:-12px;background:#fff;border-radius:50%;opacity:.6;animation:rcc-bfall linear infinite}" +
+    "@keyframes rcc-bfall{to{transform:translate(24px,115vh)}}" +
+    "@media (prefers-reduced-motion:reduce){.rcc-boot .f{display:none}}";
+  function showBoot(container) {
+    var css = document.createElement("style"); css.id = "rcc-boot-style"; css.textContent = BOOT_CSS; document.head.appendChild(css);
+    var fl = "", i;
+    for (i = 0; i < 14; i++) {
+      var sz = 2 + Math.random() * 3;
+      fl += '<i class="f" style="left:' + (Math.random() * 100).toFixed(1) + '%;width:' + sz.toFixed(1) + 'px;height:' + sz.toFixed(1) + 'px;animation-duration:' + (6 + Math.random() * 8).toFixed(1) + 's;animation-delay:-' + (Math.random() * 10).toFixed(1) + 's"></i>';
+    }
+    container.innerHTML = '<div class="rcc-boot">' + fl + '<div class="t">Christmas<br>Cabin</div><div class="bar"><i></i></div><div class="s">正在点亮小屋…</div></div>';
+    var el = container.firstChild, fill = el.querySelector(".bar i"), txt = el.querySelector(".s");
+    return {
+      set: function (p, label) { fill.style.width = Math.max(4, Math.min(100, p)) + "%"; if (label) txt.textContent = label; },
+      done: function () { try { el.remove(); } catch (e) { /* 忽略 */ } css.remove(); }
+    };
   }
 
   function esc(s) {
@@ -51,14 +87,20 @@
       id: "christmas-cabin-home", name: "圣诞小屋", icon: "redeem", iconImage: "",
 
       async mount(container, roche) {
-        await loadAll();
-        var DEF = { stream: false, snow: true, memory: true, chatLines: 20, test: false };
+        var boot = showBoot(container);
+        await loadAll(function (n, total, name) { boot.set(Math.round(n / total * 70), "加载 " + name + "（" + n + "/" + total + "）"); });
+        if (!container.isConnected) { boot.done(); return; }   // 加载期间用户已经退出了
+        boot.set(72, "读取角色和数据…");
+        var DEF = { stream: false, snow: true, memory: true, chatLines: 20, test: false, bgPause: true };
         var st = { view: "home", chars: [], user: null, sel: null, multi: [], jobs: {}, live: {}, anim: null,
-          d: null, wishes: [], letters: [], wishReply: null, errs: [] };
+          d: null, wishes: [], letters: [], wishReply: null, errs: [], world: {} };
         var cfg = {}, handlers = {};
 
-        container.innerHTML = '<div class="rcc"><div class="snowfield"></div><div class="scroll"></div></div>';
-        var root = container.querySelector(".rcc"), view = container.querySelector(".scroll"), snow = container.querySelector(".snowfield");
+        var appEl = document.createElement("div");   // 先隐藏着组装，全部准备好再显示，加载画面不会被提前顶掉
+        appEl.style.cssText = "display:none;height:100%";
+        appEl.innerHTML = '<div class="rcc"><div class="snowfield"></div><div class="scroll"></div></div>';
+        container.appendChild(appEl);
+        var root = appEl.querySelector(".rcc"), view = appEl.querySelector(".scroll"), snow = appEl.querySelector(".snowfield");
         var fl = "";
         for (var i = 0; i < 26; i++) {
           var sz = 2 + Math.random() * 3;
@@ -71,16 +113,18 @@
         styleEl.textContent = ".rcc{height:100%;overflow:hidden}.rcc .scroll{height:100%;overflow-y:auto}" + R.mods.map(function (m) { return m.style || ""; }).join("\n");
         document.head.appendChild(styleEl);
 
-        try { st.chars = (await roche.character.list()) || []; } catch (e) { st.chars = []; }
-        try { st.user = await roche.persona.getActiveUserPersona(); } catch (e) { st.user = null; }
+        var rs = await Promise.all([
+          safe(function () { return roche.character.list(); }, []), safe(function () { return roche.persona.getActiveUserPersona(); }, null),
+          roche.storage.get("data"), roche.storage.get("cfg"), roche.storage.get("wishes"), roche.storage.get("letters"), roche.storage.get("wishReply")
+        ]);
+        st.chars = rs[0] || []; st.user = rs[1] || null;
         st.sel = st.chars[0] ? st.chars[0].id : null;
-        st.d = (await roche.storage.get("data")) || {};
+        st.d = rs[2] || {};
         st.d.cert = st.d.cert || {}; st.d.gift = st.d.gift || {}; st.d.ready = st.d.ready || {};
-        var saved = (await roche.storage.get("cfg")) || {};
+        var saved = rs[3] || {};
         Object.keys(DEF).forEach(function (k) { cfg[k] = saved[k] === undefined ? DEF[k] : saved[k]; });
-        st.wishes = (await roche.storage.get("wishes")) || [];
-        st.letters = (await roche.storage.get("letters")) || [];
-        st.wishReply = (await roche.storage.get("wishReply")) || null;
+        st.wishes = rs[4] || []; st.letters = rs[5] || []; st.wishReply = rs[6] || null;
+        boot.set(80, "布置小屋…");
 
         function save() { return roche.storage.set("data", st.d); }
         function saveCfg() { return roche.storage.set("cfg", cfg); }
@@ -109,7 +153,9 @@
 
         // 记忆 + 最近聊天（都会过滤掉带疼痛/不适/负面的句子）
         async function context(c) {
-          if (!c || !c.conversationId) return "";
+          if (!c) return "";
+          try { st.world[c.id] = (R.worldbook && R.worldbook.text) ? await R.worldbook.text(c) : ""; } catch (e) { st.world[c.id] = ""; }   // 世界书：她勾选了才有内容
+          if (!c.conversationId) return "";
           var parts = [];
           if (cfg.memory) {
             try {
@@ -137,6 +183,7 @@
             "【角色人设】\n" + String(c.persona || c.bio || "").slice(0, 800) + "\n" +
             "【对方】" + userName() + (u.persona ? "：" + String(u.persona).slice(0, 300) : "") + "\n" +
             "【你对对方已有的了解（只取其中愉快的、喜好相关的部分）】\n" + (ctxText || "（暂无，请根据人设合理推测）") + "\n" +
+            (st.world[c.id] ? "【世界设定（来自世界书，是你所处世界的背景，按需自然使用，不要生硬复述）】\n" + st.world[c.id] + "\n" : "") +
             "【硬性规则】只使用对方的喜好和愉快的话题；绝不提及疼痛、疾病、不适、负面经历或让人难过的事；" +
             "不要出现“记忆”“系统”“AI”等字样；不要使用 emoji；不要写多余的说明。";
         }
@@ -223,15 +270,18 @@
 
         var ctx = { roche: roche, st: st, cfg: cfg, root: root, view: view, esc: esc, nm: nm, uid: uid, fmt: fmt, imgSrc: imgSrc, derange: derange,
           page: page, icon: icon, picker: picker, wait: wait, curChar: curChar, charById: charById, userName: userName, context: context,
-          sysFor: sysFor, ask: ask, job: job, live: live, hasJob: hasJob, render: render, go: go, save: save, saveCfg: saveCfg, applyCfg: applyCfg, R: R };
+          sysFor: sysFor, worldOf: function (c) { return (c && st.world[c.id]) || ""; }, ask: ask, job: job, live: live, hasJob: hasJob, render: render, go: go, save: save, saveCfg: saveCfg, applyCfg: applyCfg, R: R };
 
         R.mods.forEach(function (m) {
           try { handlers[m.id] = m.create(ctx) || {}; } catch (e) { st.errs.push(m.id + "：" + (e && e.message || e)); }
         });
+        boot.set(88, "准备材质…");
+        await frame();
         await Promise.all(Object.keys(handlers).map(async function (k) {
           try { if (handlers[k].init) await handlers[k].init(); } catch (e) { st.errs.push(k + "：" + (e && e.message || e)); }
         }));
         applyCfg();
+        boot.set(98, "点亮小屋…");
 
         function render() {
           var h = handlers[st.view], html;
@@ -279,10 +329,13 @@
           var s = document.getElementById("rcc-style"); if (s) s.remove();
         };
         render();
+        boot.set(100, "");
+        boot.done(); appEl.style.display = "";
       },
 
       async unmount(container) {
         if (R.cleanup) { R.cleanup(); R.cleanup = null; }
+        var bs = document.getElementById("rcc-boot-style"); if (bs) bs.remove();
         container.replaceChildren();
       }
     }]

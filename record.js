@@ -1,7 +1,8 @@
 /* record.js — 圣诞唱片机
  * 两个唱片架（不混着播，切换架子就停）：圣诞经典（代码合成的音乐盒版，平安夜 12/24 起解锁《平安夜》）/ 我的唱片（本地音频，保存在插件里）
  * 内置歌先用 OfflineAudioContext 合成成 WAV，再和你的音频一起用同一个 <audio> 播放：静音键不影响、可锁屏控制
- * 悬浮小卡片：可拖动，点唱片收成小圆球，只有点 ✕ 才消失；在圣诞小屋任何页面都能继续播，离开小屋就停 */
+ * 悬浮小卡片：可拖动，点唱片收成小圆球，只有点 ✕ 才消失；在圣诞小屋任何页面都能继续播，离开小屋就停
+ * 切后台（设置里可关）：自动暂停，回到圣诞小屋自动接着播；如果系统不让自动播，点一下 ▶ 即可 */
 (function () {
   "use strict";
   var R = window.RCC;
@@ -129,6 +130,17 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
       var shelf = "xmas", cur = null, playing = false, mini = false, audio = new Audio();
       var loopOne = false, xurls = {}, preparing = false, mine = [], murls = {}, loadingMine = false, msg = "", drag = null;
       R.duck = function (v) { try { audio.volume = v; } catch (err) {} };
+      var wasPlaying = false;
+      function onVis() {
+        if (ctx.cfg.bgPause === false) return;
+        if (document.hidden) { if (cur && playing) { wasPlaying = true; audio.pause(); } }
+        else if (wasPlaying) {
+          wasPlaying = false;
+          var p = audio.play();
+          if (p && p.catch) p.catch(function () { roche.ui.toast("欢迎回来，点一下 ▶ 继续播放"); });
+        }
+      }
+      document.addEventListener("visibilitychange", onVis);
       var fl = document.createElement("div");
       fl.className = "rfl"; fl.style.display = "none"; ctx.root.appendChild(fl);
 
@@ -265,6 +277,7 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
           prepare();
         },
         destroy: function () {
+          document.removeEventListener("visibilitychange", onVis);
           audio.pause(); audio.removeAttribute("src");
           Object.keys(xurls).forEach(function (k) { URL.revokeObjectURL(xurls[k]); });
           Object.keys(murls).forEach(function (k) { URL.revokeObjectURL(murls[k]); });

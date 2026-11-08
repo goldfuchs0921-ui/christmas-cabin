@@ -1,4 +1,4 @@
-/* santa.js — 神秘圣诞老人：本地抽签（不花钱）+ 一次 AI 生成交换礼物小剧场 */
+/* santa.js — 神秘圣诞老人：本地抽签（不花钱）+ 一次 AI 生成交换礼物小剧场（会带上勾选的世界书） */
 (function () {
   "use strict";
   var R = window.RCC;
@@ -39,8 +39,9 @@
             var pairs0 = st.d.draw, ids = st.multi.slice();
             ctx.job(KEY, "santa", "交换礼物现场", async function () {
               var infos = await Promise.all(ids.map(async function (cid) {
-                var ch = ctx.charById(cid), l = await ctx.context(ch);
-                return "【" + ctx.nm(ch) + "】人设：" + String(ch.persona || ch.bio || "").slice(0, 250) + "\n喜好：" + l.split("\n").slice(0, 6).join("；");
+                var ch = ctx.charById(cid), l = await ctx.context(ch), w = ctx.worldOf(ch);
+                return "【" + ctx.nm(ch) + "】人设：" + String(ch.persona || ch.bio || "").slice(0, 250) + "\n喜好：" + l.split("\n").slice(0, 6).join("；") +
+                  (w ? "\n世界设定：" + w : "");
               }));
               var pairs = pairs0.map(function (p) { return ctx.nm(ctx.charById(p.from)) + " 送给 " + ctx.nm(ctx.charById(p.to)); }).join("；");
               st.d.scene = await ctx.ask("你是擅长写温馨群像小剧场的作者。参与者资料：\n" + infos.join("\n\n") +
