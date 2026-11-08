@@ -1,18 +1,18 @@
-/* 圣诞小屋 v1.6.0 — 核心文件（入口）
+/* 圣诞小屋 v1.7.0 — 核心文件（入口）
  * 负责：加载模块、共享状态、AI 调用（流式可选）、后台任务、路由、事件分发
  * 界面和功能都在 modules/ 里，哪里不对改哪个文件：
  *   （所有文件都直接放在仓库最外层，不用文件夹）
- *   theme 材质样式 · home 主页 · settings 设置页 · worldbook 世界书选择 · cert 好孩子名单 · gift 礼物盲盒 · mail 圣诞信箱 · santa 神秘圣诞老人 · record 唱片机 · snow-art 雪仗的画面与音效 · snow 雪仗
+ *   theme 材质样式 · home 主页 · settings 设置页 · worldbook 世界书选择 · cert 好孩子名单 · gift 礼物盲盒 · mail 圣诞信箱 · santa 神秘圣诞老人 · record 唱片机 · snow-art 雪仗的画面与音效 · snow 雪仗 · batch 一键生成
  */
 (function () {
   "use strict";
-  var VER = "1.6.0";
+  var VER = "1.7.0";
   var BASE = "https://raw.githubusercontent.com/goldfuchs0921-ui/christmas-cabin/main/";
   try {
     var cs = document.currentScript;
     if (cs && cs.src && /christmas-cabin\.js/.test(cs.src)) BASE = cs.src.replace(/[^\/]*$/, "");
   } catch (e) { /* 用默认地址 */ }
-  var MODULES = ["theme", "home", "settings", "worldbook", "cert", "gift", "mail", "santa", "record", "snow-art", "snow"];
+  var MODULES = ["theme", "home", "settings", "worldbook", "cert", "gift", "mail", "santa", "record", "snow-art", "snow", "batch"];
 
   var R = window.RCC = window.RCC || {};
   R.mods = R.mods || []; R.status = R.status || {}; R.base = BASE; R.ver = VER;
@@ -91,7 +91,7 @@
         await loadAll(function (n, total, name) { boot.set(Math.round(n / total * 70), "加载 " + name + "（" + n + "/" + total + "）"); });
         if (!container.isConnected) { boot.done(); return; }   // 加载期间用户已经退出了
         boot.set(72, "读取角色和数据…");
-        var DEF = { stream: false, snow: true, memory: true, chatLines: 20, test: false, bgPause: true };
+        var DEF = { stream: false, snow: true, memory: true, chatLines: 20, test: false, bgPause: true, batchMode: "each" };
         var st = { view: "home", chars: [], user: null, sel: null, multi: [], jobs: {}, live: {}, anim: null,
           d: null, wishes: [], letters: [], wishReply: null, errs: [], world: {} };
         var cfg = {}, handlers = {};
@@ -239,14 +239,16 @@
           return JSON.parse(m[0]);
         }
         // 后台任务：不挡住界面，做完在主页亮小点
-        function job(key, readyKey, label, fn) {
-          if (st.jobs[key]) return roche.ui.toast("已经在生成了，可以先去别处逛逛");
+        // opts.silent：一键生成里用，不弹提示、不亮小点，返回 { ok, err }
+        function job(key, readyKey, label, fn, opts) {
+          var silent = opts && opts.silent, res = { ok: true, err: null };
+          if (st.jobs[key]) { if (!silent) roche.ui.toast("已经在生成了，可以先去别处逛逛"); return Promise.resolve({ ok: false, err: new Error("这一项正在生成") }); }
           st.jobs[key] = true; render();
-          fn().then(function () {
-            if (st.view !== readyKey) { st.d.ready[readyKey] = true; roche.ui.toast(label + "好了"); }
+          return fn().then(function () {
+            if (!silent && st.view !== readyKey) { st.d.ready[readyKey] = true; roche.ui.toast(label + "好了"); }
             return save();
-          }).catch(function (e) { roche.ui.toast("出错了：" + (e && e.message || e)); })
-            .then(function () { delete st.jobs[key]; render(); });
+          }).catch(function (e) { res = { ok: false, err: e }; if (!silent) roche.ui.toast("出错了：" + (e && e.message || e)); })
+            .then(function () { delete st.jobs[key]; render(); return res; });
         }
 
         // ---------- 通用界面片段 ----------

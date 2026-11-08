@@ -30,8 +30,8 @@
   R.add({
     id: "settings", style: CSS,
     create: function (ctx) {
-      var cfg = ctx.cfg, roche = ctx.roche, st = ctx.st, sub = null;
-      var PAGES = { display: ["Display", "显 示 与 声 音"], gen: ["Generate", "生 成 设 置"], data: ["Data", "数 据 管 理"], about: ["About", "高 级 与 关 于"] };
+      var cfg = ctx.cfg, roche = ctx.roche, st = ctx.st, sub = null, probe = "";
+      var PAGES = { display: ["Display", "显 示 与 声 音"], gen: ["Generate", "生 成 设 置"], batch: ["Make All", "一 键 生 成"], data: ["Data", "数 据 管 理"], about: ["About", "高 级 与 关 于"] };
       function on(v) { return v ? "开" : "关"; }
       function sw(k, title, desc) {
         return '<div class="set"><div><b>' + title + '</b><small>' + desc + '</small></div><button class="sw' + (cfg[k] ? " on" : "") +
@@ -49,6 +49,7 @@
       function main() {
         return row("显示与声音", "飘雪 " + on(cfg.snow) + " · 切后台暂停音乐 " + on(cfg.bgPause), 'data-act="settings.open" data-p="display"') +
           row("生成设置", "流式 " + on(cfg.stream) + " · 读取记忆 " + on(cfg.memory) + " · 最近聊天 " + cfg.chatLines + " 条", 'data-act="settings.open" data-p="gen"') +
+          row("一键生成", "模式：" + (cfg.batchMode === "once" ? "一次调用" : "逐项依次调用"), 'data-act="settings.open" data-p="batch"') +
           row("世界书", (R.worldbook && R.worldbook.brief) ? R.worldbook.brief() : "选择生成时参考哪些世界书", 'data-act="core.go" data-v="worldbook"') +
           row("数据管理", "清空愿望、信件和生成结果", 'data-act="settings.open" data-p="data"') +
           row("高级与关于", "测试模式 " + on(cfg.test) + " · 版本 v" + R.ver, 'data-act="settings.open" data-p="about"');
@@ -65,6 +66,41 @@
           '<div class="set"><div><b>读取最近聊天</b><small>条数越多越慢越费钱，0 表示不读</small></div><div class="step">' +
           '<button class="gbtn" data-act="settings.step" data-d="-5">−</button><span>' + cfg.chatLines + '</span><button class="gbtn" data-act="settings.step" data-d="5">+</button></div></div></div>';
       }
+      function pageBatch() {
+        var m = cfg.batchMode === "once" ? "once" : "each";
+        function opt(v, title, desc) {
+          return '<div class="set"><div><b>' + title + '</b><small>' + desc + '</small></div><button class="sw' + (m === v ? " on" : "") + '" data-act="settings.bmode" data-m="' + v + '" aria-label="' + title + '"><i></i></button></div>';
+        }
+        return '<div class="grp">' + opt("each", "逐项依次调用（默认）", "每一项各调用一次模型，进度清楚，失败只重试那一项，结果和单独生成完全一样。") +
+          opt("once", "一次调用", "同一个角色的几项合并成一次请求，省一点钱；输出太长可能被截断，没成功的会自动改成逐项重试。") + '</div>' +
+          '<small class="hint" style="display:block;margin:0">一键生成的入口在主页最上面的第一张卡片。战绩评价、礼物图、圣诞信箱不在其中。</small>';
+      }
+      function probeNames(o) {
+        var ks = [];
+        try { ks = Object.keys(o); } catch (e) { /* 忽略 */ }
+        var p = o && Object.getPrototypeOf && Object.getPrototypeOf(o), guard = 0;
+        while (p && p !== Object.prototype && guard++ < 3) {
+          try { Object.getOwnPropertyNames(p).forEach(function (k) { if (k !== "constructor" && ks.indexOf(k) < 0) ks.push(k); }); } catch (e2) { /* 忽略 */ }
+          p = Object.getPrototypeOf(p);
+        }
+        return ks.sort();
+      }
+      function probeText() {
+        var out = [], hit = [];
+        function dump(title, o) {
+          out.push("【" + title + "】");
+          if (!o) { out.push("（没有）"); return; }
+          probeNames(o).forEach(function (k) {
+            var v; try { v = o[k]; } catch (e) { v = null; }
+            var line = (v && typeof v === "object") ? k + ": " + probeNames(v).join(", ") : k + " (" + typeof v + ")";
+            out.push(line);
+            if (/preset|regex|prompt|template|script|预设|正则/i.test(line)) hit.push(line);
+          });
+        }
+        dump("roche（插件拿到的接口）", roche);
+        dump("window.Roche", window.Roche);
+        return (hit.length ? "★ 可能相关（预设/正则/提示词）：\n" + hit.join("\n") + "\n\n" : "★ 没有发现名字里带 preset / regex / prompt / template 的接口\n\n") + out.join("\n");
+      }
       function pageData() {
         return '<div class="grp"><small class="hint" style="display:block;margin:0">愿望、信件和生成结果只存在插件自己的存储里，不会写入 Roche 主记忆。雪仗的战绩和台词在雪仗页的「清理数据」里单独清。</small>' +
           '<div class="btns"><button class="btn ghost sm" data-act="settings.clr" data-w="wishes">清空愿望</button>' +
@@ -75,6 +111,9 @@
       function pageAbout() {
         var status = Object.keys(R.status).map(function (k) { return R.status[k] ? "✓ " + k : "<u>✗ " + k + "（没加载到）</u>"; }).join("　");
         return '<div class="grp">' + sw("test", "测试模式", "打开后，信箱里会出现「提前揭晓愿望」「提前送达回信」按钮") + '</div>' +
+          '<div class="grp"><h4>接 口 探 测</h4><small class="hint" style="display:block;margin:0 0 8px">列出 Roche 实际提供给插件的接口名（包括文档里没写的），用来确认有没有预设、正则的接口。点一下，把结果复制发给我就行。</small>' +
+          '<div class="btns"><button class="btn ghost sm" data-act="settings.probe">探测一下</button>' + (probe ? '<button class="btn ghost sm" data-act="settings.copyProbe">复制结果</button>' : "") + '</div>' +
+          (probe ? '<pre class="diag" style="white-space:pre-wrap;word-break:break-all;margin:10px 0 0;font-family:inherit">' + ctx.esc(probe) + '</pre>' : "") + '</div>' +
           '<div class="grp"><h4>关 于</h4><div class="diag">圣诞小屋 v' + R.ver + '<br>模块：' + status +
           (st.errs.length ? '<br><u>运行错误：' + ctx.esc(st.errs.slice(-3).join("；")) + '</u>' : "") + '</div></div>';
       }
@@ -83,7 +122,7 @@
         back: function () { if (sub) { sub = null; return true; } return false; },
         view: function () {
           if (!sub) return ctx.page("Settings", "设 置", main());
-          var body = { display: pageDisplay, gen: pageGen, data: pageData, about: pageAbout }[sub]();
+          var body = { display: pageDisplay, gen: pageGen, batch: pageBatch, data: pageData, about: pageAbout }[sub]();
           return ctx.page(PAGES[sub][0], PAGES[sub][1], body);
         },
         act: async function (name, el) {
@@ -92,6 +131,16 @@
             var k = el.dataset.k; cfg[k] = !cfg[k]; await ctx.saveCfg(); ctx.applyCfg();
             if (k === "stream" && cfg.stream) roche.ui.toast("已开启流式，如果没反应或报错请关掉");
             return ctx.render();
+          }
+          if (name === "bmode") { cfg.batchMode = el.dataset.m === "once" ? "once" : "each"; await ctx.saveCfg(); return ctx.render(); }
+          if (name === "probe") { try { probe = probeText(); } catch (err) { probe = "探测失败：" + (err && err.message || err); } return ctx.render(); }
+          if (name === "copyProbe") {
+            var okc = false;
+            try { await navigator.clipboard.writeText(probe); okc = true; } catch (err) {
+              var ta = document.createElement("textarea"); ta.value = probe; ta.style.cssText = "position:fixed;left:-999px;top:0"; document.body.appendChild(ta); ta.select();
+              try { okc = document.execCommand("copy"); } catch (e2) { okc = false; } ta.remove();
+            }
+            return roche.ui.toast(okc ? "已复制" : "复制失败，请直接截图");
           }
           if (name === "step") { cfg.chatLines = Math.max(0, Math.min(50, cfg.chatLines + (+el.dataset.d))); await ctx.saveCfg(); return ctx.render(); }
           if (name === "clr") {

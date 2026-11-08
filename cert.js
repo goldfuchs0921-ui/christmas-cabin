@@ -1,4 +1,5 @@
-/* cert.js — 好孩子名单：角色扮圣诞老人出一份鉴定报告（结果按角色缓存） */
+/* cert.js — 好孩子名单：角色扮圣诞老人出一份鉴定报告（结果按角色缓存）
+ * 生成逻辑放在 R.gens.cert 里，单独点按钮和「一键生成」共用同一份 */
 (function () {
   "use strict";
   var R = window.RCC;
@@ -14,6 +15,25 @@
 .rcc .cert .sg{text-align:right;color:var(--soft);font-size:13px;margin:12px 80px 0 0}
 .rcc .cert .seal{position:absolute;right:20px;bottom:16px;width:62px;height:62px;border-radius:50%;display:grid;place-items:center;text-align:center;font-size:11px;line-height:1.3;color:#f8dede;transform:rotate(-10deg);background:radial-gradient(circle at 35% 30%,#d6505f,#a3293a 55%,#6e1522);box-shadow:inset 0 2px 3px rgba(255,255,255,.35),inset 0 -3px 5px rgba(0,0,0,.4),0 3px 5px rgba(0,0,0,.45)}
 `;
+  R.gens = R.gens || {};
+  var G = R.gens.cert = {
+    id: "cert", scope: "char", label: "好孩子名单", desc: "每个角色出一份鉴定报告",
+    jobKey: function (c) { return "cert:" + c.id; },
+    has: function (ctx, c) { return !!ctx.st.d.cert[c.id]; },
+    prompt: function (ctx, c) {
+      return "现在是圣诞节前夕，你扮演圣诞老人，为对方出具一份「年度好孩子鉴定报告」。只输出 JSON：" +
+        '{"title":"英文或中英混合的报告标题，简短","items":[{"label":"评分项，共4项，有趣且贴合对方的喜好，不要负面","stars":5}],"verdict":"总评，60-100字，用你的口吻","note":"一句悄悄话，20字内"}';
+    },
+    apply: function (ctx, c, k) {
+      if (!k || !k.items || !k.items.length) throw new Error("报告内容不完整，再试一次");
+      k.title = k.title || "Good Kid Report"; k.who = ctx.nm(c); k.year = new Date().getFullYear();
+      ctx.st.d.cert[c.id] = k;
+    },
+    run: async function (ctx, c) {
+      var l = await ctx.context(c);
+      G.apply(ctx, c, await ctx.ask(ctx.sysFor(c, l), G.prompt(ctx, c), true));
+    }
+  };
   R.add({
     id: "cert", style: CSS,
     home: { order: 1, en: "Good Kids", zh: "好 孩 子 名 单", desc: "让 TA 扮圣诞老人，给你出一份鉴定报告", icon: "cert", svg: SVG },
@@ -34,18 +54,12 @@
           }
           return ctx.page("Good Kids", "好 孩 子 名 单", h);
         },
-        act: function (name) {
+        act: async function (name) {
           if (name !== "make") return;
           var c = ctx.curChar();
           if (!c) return ctx.roche.ui.toast("请先选一个角色");
-          ctx.job("cert:" + c.id, "cert", "好孩子名单", async function () {
-            var l = await ctx.context(c);
-            var k = await ctx.ask(ctx.sysFor(c, l), "现在是圣诞节前夕，你扮演圣诞老人，为对方出具一份「年度好孩子鉴定报告」。只输出 JSON：" +
-              '{"title":"英文或中英混合的报告标题，简短","items":[{"label":"评分项，共4项，有趣且贴合对方的喜好，不要负面","stars":5}],"verdict":"总评，60-100字，用你的口吻","note":"一句悄悄话，20字内"}', true);
-            if (!k.items || !k.items.length) throw new Error("报告内容不完整，再试一次");
-            k.title = k.title || "Good Kid Report"; k.who = ctx.nm(c); k.year = new Date().getFullYear();
-            ctx.st.d.cert[c.id] = k;
-          });
+          if (ctx.st.d.cert[c.id] && !(await ctx.roche.ui.confirm({ title: "重新鉴定", message: "会再调用一次模型，现在的报告会被替换。确定吗？" }))) return;
+          ctx.job("cert:" + c.id, "cert", "好孩子名单", function () { return G.run(ctx, c); });
         }
       };
     }

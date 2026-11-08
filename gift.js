@@ -1,4 +1,5 @@
-/* gift.js — 礼物盲盒：角色挑礼物（结果按角色缓存），可选生成礼物图 */
+/* gift.js — 礼物盲盒：角色挑礼物（结果按角色缓存），可选生成礼物图
+ * 挑礼物的逻辑放在 R.gens.gift 里，单独点按钮和「一键生成」共用同一份（礼物图不在一键生成里） */
 (function () {
   "use strict";
   var R = window.RCC;
@@ -17,6 +18,27 @@
 .rcc .gifted p{margin:0;white-space:pre-wrap}
 .rcc .gifted img{display:block;max-width:100%;margin-top:14px;border-radius:6px;box-shadow:0 4px 10px rgba(60,30,0,.45)}
 `;
+  R.gens = R.gens || {};
+  var G = R.gens.gift = {
+    id: "gift", scope: "char", label: "礼物盲盒", desc: "每个角色挑一份礼物（不含礼物图）",
+    jobKey: function (c) { return "gift:" + c.id; },
+    has: function (ctx, c) { var e0 = ctx.st.d.gift[c.id]; return !!(e0 && e0.cur); },
+    prompt: function (ctx, c) {
+      var e0 = ctx.st.d.gift[c.id] || { hist: [] };
+      return "你扮演圣诞老人，根据你对对方的了解挑一份圣诞礼物。不要与这些重复：" + (e0.hist.join("、") || "无") +
+        '。只输出 JSON：{"name":"礼物名","reason":"用你的口吻说挑选理由，50-90字","image":"礼物的英文生图提示词，一句话"}';
+    },
+    apply: function (ctx, c, g) {
+      if (!g || !g.name) throw new Error("礼物内容不完整，再试一次");
+      var e0 = ctx.st.d.gift[c.id] || { hist: [] };
+      e0.hist.push(g.name); e0.cur = g; ctx.st.d.gift[c.id] = e0;
+      if (ctx.st.view === "gift") ctx.st.anim = c.id;
+    },
+    run: async function (ctx, c) {
+      var l = await ctx.context(c);
+      G.apply(ctx, c, await ctx.ask(ctx.sysFor(c, l), G.prompt(ctx, c), true));
+    }
+  };
   R.add({
     id: "gift", style: CSS,
     home: { order: 2, en: "Gift Box", zh: "礼 物 盲 盒", desc: "TA 根据对你的了解，挑一份礼物", icon: "gift", svg: SVG },
@@ -40,13 +62,8 @@
           var c = ctx.curChar();
           if (!c) return ctx.roche.ui.toast("请先选一个角色");
           if (name === "open") {
-            ctx.job("gift:" + c.id, "gift", "礼物", async function () {
-              var l = await ctx.context(c), e0 = ctx.st.d.gift[c.id] || { hist: [] };
-              var g = await ctx.ask(ctx.sysFor(c, l), "你扮演圣诞老人，根据你对对方的了解挑一份圣诞礼物。不要与这些重复：" + (e0.hist.join("、") || "无") +
-                '。只输出 JSON：{"name":"礼物名","reason":"用你的口吻说挑选理由，50-90字","image":"礼物的英文生图提示词，一句话"}', true);
-              e0.hist.push(g.name); e0.cur = g; ctx.st.d.gift[c.id] = e0;
-              if (ctx.st.view === "gift") ctx.st.anim = c.id;
-            });
+            if (G.has(ctx, c) && !(await ctx.roche.ui.confirm({ title: "换一个礼物", message: "会再调用一次模型，现在的礼物会被换掉（礼物图也会没有）。确定吗？" }))) return;
+            ctx.job("gift:" + c.id, "gift", "礼物", function () { return G.run(ctx, c); });
           }
           if (name === "img") {
             var e1 = ctx.st.d.gift[c.id], g1 = e1 && e1.cur;
