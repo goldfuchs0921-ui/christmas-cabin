@@ -1,6 +1,7 @@
 /* snow.js — 雪仗：回合制（我方防守 / 我方进攻），5 颗心，最多 8 回合
  * 台词：进入前一次性预生成并缓存（每个角色只花一次钱），游戏中按事件类型挑，所以台词和画面一定对得上
  * 形象：对手用角色头像，我方用你的人设头像；不用生图
+ * v1.5.1：3b 修正（球跟红圈变道/风格可视化+被打中反应/按角色战绩+清理页/删栅栏/画布自适应缩放/哔哔声去重）
  * v1.5.0（第三批 3b）：台词系统(感情/低血量/上局结果)+哔哔声+四种角色风格+握手言和+开局提示+方向键 A/D+切后台即暂停+准备台词进度原地显示
  * v1.4.4：3a 修正（对战页整理/滑块改木推子/白雪球+雪团拖尾/台词视角重写）
  * v1.4.3（第三批 3a）：开战前对战页（左右对抗+VS）/ 灯串接边缘+灯泡各自晃 / 更精致的摆件 / 蓄力动画（我方蓝白、对手红）
@@ -15,7 +16,7 @@
     startWon: "对方上一局赢了你，这局开场你不服气地说一句", panic: "你只剩 1 颗心了，慌张、拼命、不想输地说一句", taunt: "对方的心已经不多了，你调侃或嘲讽一句（符合性格，别伤人）",
     truce: "整场打平了，你和对方握手言和，说一句", wild: "（只有 tsun 写）你被对方连着躲开两次急眼了，一球扔到旁边的背景上，完全没打到人，嘴硬地辩解",
     annoy: "（只有 tsun 写）对方又一次躲开了你的球，你开始着急", slip: "（只有 gentle 写）你手滑了，雪球飞到旁边去了，不好意思地说一句",
-    callL: "（只有 tricky 写）扔球前你故意宣布要扔左边，其实可能是骗人的", callR: "（只有 tricky 写）扔球前你故意宣布要扔右边，其实可能是骗人的" };
+    callL: "（只有 tricky 写）扔球前你故意宣布要扔左边，其实可能是骗人的", callR: "（只有 tricky 写）扔球前你故意宣布要扔右边，其实可能是骗人的", shrug: "（只有 tricky 写）你被对方打中了，但装作没事、云淡风轻" };
   var DEF = {
     start: ["准备好了吗？", "来打雪仗吧！", "别想跑！"], throw: ["接招！", "看球！", "小心啦！"],
     dodge: ["哎，躲开了！", "溜得真快！", "下次一定！"], hit: ["打中啦！", "漂亮！", "嘿嘿，中了！"],
@@ -23,12 +24,14 @@
     oppWin: ["我赢啦！", "承让承让！", "再来一局？"], oppLose: ["我认输！", "你好厉害！", "下次不会输！"],
     startWon: ["这次我可不会输！", "上次让着你的！"], panic: ["还不能输！", "拼了！", "别、别过来！"], taunt: ["就这点本事？", "快撑不住了吧？"],
     truce: ["打平啦，握个手吧！", "下次再分胜负！"], wild: ["哼，才不是故意的！", "手、手滑了啦！"], annoy: ["你怎么老躲！", "别躲啦！"], slip: ["呀！手滑了！", "哎呀，扔歪了！"],
-    callL: ["我要扔左边咯~"], callR: ["我要扔右边咯~"]
+    callL: ["我要扔左边咯~"], callR: ["我要扔右边咯~"], shrug: ["哦？没感觉~", "就这？再来~"]
   };
   var STY_NAME = { tricky: "腹黑", tsun: "傲娇", gentle: "温柔", cool: "高冷", normal: "普通" };
   var STY_ORDER = [null, "tricky", "tsun", "gentle", "cool", "normal"];
   var TIP = { tricky: "你匹配到了一个很腹黑的对手呢", tsun: "哇，你这次的对手很傲娇", gentle: "这位对手有点笨手笨脚，说不定会手滑", cool: "对手话不多，但出手很准，小心" };
-  var VOICE = [1, 1.122, 1.26, 1.5, 1.68, 2];
+  var VOICE = [1, 1.122, 1.26, 1.5, 1.68, 2], VOICE_HI = [1.5, 1.68, 2, 2.24], TONEW = /[啊呀吧呢哦嘛啦哇哼嗯哎诶咦喂嘿呐]/;
+  var STY_FX = { tricky: "140,70,190", tsun: "235,115,40", gentle: "238,130,165", cool: "80,150,205" };
+  var STY_GLYPH = { tricky: "诈", tsun: "哼", gentle: "柔", cool: "冷" };
   var PAUSE_HTML = '<div class="res pz"><h3 class="en">暂停</h3><div class="bubble">切走了，先帮你停住了</div><div><button class="btn" data-act="snow.resume">继续</button></div></div>';
   var SVG = '<svg viewBox="0 0 48 48" fill="none" stroke="#8a5a1c" stroke-width="2.2"><circle cx="24" cy="30" r="12" fill="rgba(255,255,255,.7)"/><circle cx="24" cy="14" r="8" fill="rgba(255,255,255,.7)"/><path d="M22 14h5" stroke="#c9742a"/></svg>';
   function heart(on) { return '<svg viewBox="0 0 24 24" width="17" height="17"><path d="M12 21s-8-5.6-8-11a4.5 4.5 0 018-2.8A4.5 4.5 0 0120 10c0 5.4-8 11-8 11z" fill="' + (on ? "#c23a4c" : "rgba(60,40,20,.25)") + '" stroke="' + (on ? "#6e1522" : "rgba(60,40,20,.4)") + '" stroke-width="1"/></svg>'; }
@@ -96,12 +99,6 @@
       '<path d="M32 12V28M24 20H40M26.5 14.5L37.5 25.5M37.5 14.5L26.5 25.5" stroke="#5a381c" stroke-width="1.6" stroke-linecap="round" opacity=".6"/>' +
       '<path d="M2 7Q10 -3 22 3Q34 -3 44 3Q54 -2 62 7L62 10Q32 5 2 10Z" fill="url(#sn-snow)"/>' +
       '<ellipse cx="32" cy="92" rx="14" ry="3.5" fill="url(#sn-snow)"/></svg>',
-    fence: '<svg viewBox="0 0 70 88"><ellipse cx="35" cy="84" rx="34" ry="4" fill="url(#sn-shd)"/>' +
-      '<g fill="url(#sn-wood)" stroke="#3c2410" stroke-width="1.3"><rect x="1" y="28" width="68" height="8" rx="1"/><rect x="1" y="54" width="68" height="8" rx="1"/></g>' +
-      '<g fill="url(#sn-woodv)" stroke="#3c2410" stroke-width="1.4" stroke-linejoin="round"><path d="M3 14L8.5 5L14 14V83H3Z"/><path d="M29 10L34.5 1L40 10V83H29Z"/><path d="M56 14L61.5 5L67 14V83H56Z"/></g>' +
-      '<path d="M7 20V78M33 16V78M60 20V78" stroke="#4a2c14" stroke-width=".8" opacity=".35"/>' +
-      '<path d="M3 14L8.5 4L14 14Q8.5 11 3 14ZM29 10L34.5 0L40 10Q34.5 7 29 10ZM56 14L61.5 4L67 14Q61.5 11 56 14Z" fill="url(#sn-snow)"/>' +
-      '<path d="M2 28Q18 25 36 27Q54 25 68 28L68 30Q36 28 2 30Z" fill="url(#sn-snow)"/></svg>',
     snowman: '<svg viewBox="0 -8 64 98"><ellipse cx="32" cy="86" rx="28" ry="4" fill="url(#sn-shd)"/>' +
       '<path d="M10 58L2 48M54 58L63 49" stroke="#5a381c" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M5 52L1 52M59 53L62 56" stroke="#5a381c" stroke-width="1.4" stroke-linecap="round"/>' +
       '<circle cx="32" cy="62" r="24" fill="url(#sn-sph)" stroke="#9db0cc" stroke-width="1.4"/>' +
@@ -126,10 +123,10 @@
     return s;
   }
   // 会被砸歪的物件各级歪的程度（0 = 没歪）
-  var ANG = { sg: [0, 12, 22, 32], fc: [0, 5, 10, 15], sh: [0, -14, -28, -46] };
+  var ANG = { sg: [0, 12, 22, 32], sh: [0, -14, -28, -46] };
   var HEAD = [[0, 0, 0], [0, 0, 16], [7, 4, 36], [13, 20, 66]];       // 雪人头：x, y, 旋转
-  var ZONES = { backL: ["tl", "gl", "lt"], backR: ["tr", "gr", "lt"], frontL: ["pl", "sh"], frontR: ["sg", "fc", "sm"] };
-  var KIND = { tl: "tree", tr: "tree", lt: "lights", gl: "soft", gr: "soft", pl: "soft", sg: "wood", fc: "wood", sh: "wood", sm: "snowman" };
+  var ZONES = { backL: ["tl", "gl", "lt"], backR: ["tr", "gr", "lt"], frontL: ["pl", "sh"], frontR: ["sg", "sm"] };
+  var KIND = { tl: "tree", tr: "tree", lt: "lights", gl: "soft", gr: "soft", pl: "soft", sg: "wood", sh: "wood", sm: "snowman" };
   function drops() {
     var s = "";
     for (var i = 0; i < 5; i++) s += '<i class="drop" style="left:' + (12 + i * 9) + 'px;top:' + (24 + (i % 3) * 14) + 'px;--dx:' + ((i % 2 ? 1 : -1) * (6 + i * 3)) + 'px;animation-delay:' + (i * 70) + 'ms"></i>';
@@ -188,7 +185,7 @@
       init: init, setVol: setVol,
       suspend: function () { if (ac && ac.state === "running") { try { ac.suspend(); } catch (e) { /* 忽略 */ } } },
       // 说话哔哔声：一个字一声，音高在一组音阶里随机（像动物森友会）
-      blip: guard(function (f) { tone(now(), f, f * 0.96, 0.06, 0.1, "triangle", 0.004); }),
+      blip: guard(function (f, d) { tone(now(), f, f * 0.96, d || 0.06, 0.1, "triangle", 0.004); }),
       // 蓄力：越来越高的嗡声 + 细碎的闪烁；对手（m=我方高一点，o=对手低一点）
       charge: guard(function (by, ms) {
         var t = now(), d = ms / 1000, base = by === "m" ? 520 : 340, i;
@@ -249,7 +246,7 @@
   })();
 
   var CSS = `
-.rcc .arena{position:relative;height:520px;border-radius:12px;overflow:hidden;background:linear-gradient(#8fa8cf 0%,#d6e2f2 21.5%,#f6f9fc 22%,#dfe8f2 100%);box-shadow:inset 0 0 22px rgba(50,70,110,.4),0 0 0 2px #5a3a20}
+.rcc .arena{position:absolute;left:0;top:0;width:360px;height:520px;transform:scale(var(--s,1));transform-origin:0 0;border-radius:12px;overflow:hidden;background:linear-gradient(#8fa8cf 0%,#d6e2f2 21.5%,#f6f9fc 22%,#dfe8f2 100%);box-shadow:inset 0 0 22px rgba(50,70,110,.4),0 0 0 2px #5a3a20}
 .rcc .arena .hill{position:absolute;z-index:0;left:-10%;right:-10%;top:17%;height:56px;border-radius:50%;background:#fff;box-shadow:0 -4px 10px rgba(120,150,190,.25)}
 .rcc .deco{position:absolute;z-index:1;pointer-events:none}
 .rcc .deco svg{display:block;width:100%;height:100%;overflow:visible}
@@ -391,7 +388,19 @@
 @keyframes rcc-hsr{from{transform:translateX(90px)}to{transform:none}}
 .rcc .hs-mid{display:grid;place-items:center;animation:rcc-pulse 1.4s ease-in-out infinite}
 .rcc .hs-btn{position:absolute;z-index:1;left:0;right:0;bottom:26px;text-align:center}
-@media (prefers-reduced-motion:reduce){.rcc .bulb,.rcc .bulb u{animation:none}}
+.rcc .aw{display:flex;justify-content:center}
+.rcc .ab{position:relative;flex:0 0 auto;width:calc(360px * var(--s,1));height:calc(520px * var(--s,1))}
+.rcc .sty-badge{position:absolute;z-index:2;right:-9px;top:-7px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-style:normal;font-weight:700;line-height:1;color:#fff;box-shadow:0 0 0 2px #fff,0 2px 4px rgba(0,0,0,.4)}
+.rcc .s-tricky{background:#7a4aa8}.rcc .s-tsun{background:#e0702a}.rcc .s-gentle{background:#e07a98}.rcc .s-cool{background:#4a86b0}
+.rcc .char.fume .av2{animation:rcc-fume .09s linear infinite}
+@keyframes rcc-fume{0%,100%{transform:translateX(-2.5px)}50%{transform:translateX(2.5px)}}
+.rcc .vs-side.R{position:relative}
+.rcc .vs-zone{max-width:520px;margin-left:auto;margin-right:auto}
+.rcc .vs-sub .btn{padding:6px 10px;letter-spacing:0;white-space:nowrap}
+.rcc .cl .set{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid rgba(90,58,24,.25)}
+.rcc .cl .set b{display:block;font-weight:600}
+.rcc .cl .set small{display:block;color:var(--soft);font-size:12px;line-height:1.5}
+@media (prefers-reduced-motion:reduce){.rcc .bulb,.rcc .bulb u{animation:none}.rcc .char.fume .av2{animation:none}}
 `;
 
   R.add({
@@ -399,7 +408,7 @@
     home: { order: 6, en: "Snowball Fight", zh: "雪 仗", desc: "和角色打一场回合制雪仗", icon: "snow", svg: SVG },
     create: function (ctx) {
       var st = ctx.st, roche = ctx.roche, e = ctx.esc;
-      var game = null, timers = [], lineMsg = "", rules = null, trailT = null, duckT = null, typeT = null, typing = null;
+      var game = null, timers = [], lineMsg = "", rules = null, trailT = null, duckT = null, typeT = null, typing = null, cleanOpen = false;
 
       // 可暂停的计时器：切后台时记下剩余时间，回来点「继续」再接着走
       function drop(t) { var i = timers.indexOf(t); if (i > -1) timers.splice(i, 1); }
@@ -411,14 +420,19 @@
       function clearAll() { timers.forEach(function (t) { clearTimeout(t.id); }); timers = []; if (typeT) { clearTimeout(typeT); typeT = null; } typing = null; if (trailT) { cancelAnimationFrame(trailT); trailT = null; } unduck(); }
       function rnd() { return Math.random(); }
       function lines(c) { return (st.d.snowLines && st.d.snowLines[c.id]) || null; }
-      function stats() { return st.d.snowStats || { win: 0, lose: 0, draw: 0 }; }
+      function rec(c) {
+        if (!c) return { win: 0, lose: 0, draw: 0, last: null, truce: false };
+        var RC = st.d.snowRec = st.d.snowRec || {};
+        return RC[c.id] = RC[c.id] || { win: 0, lose: 0, draw: 0, last: null, truce: false };
+      }
       function avatar(img, name) { return img ? '<img src="' + e(img) + '" alt="">' : e(String(name || "?").slice(0, 1)); }
       function el(sel) { return ctx.view.querySelector(sel); }
       function say(ev) {
         var g = game, L = (g.c && lines(g.c)) || {}, pick = ev, oppEv = ev === "dodge" || ev === "hit" || ev === "gotHit" || ev === "miss";
         if (oppEv && g.hp.opp === 1 && rnd() < 0.7) pick = "panic";                                      // 只剩 1 颗心：慌张拼命
         else if ((ev === "hit" || ev === "dodge") && g.hp.me <= 2 && rnd() < 0.6) pick = "taunt";        // 你的心不多了：调侃
-        else if (ev === "start" && st.d.snowLast === "win") pick = "startWon";                          // 你上局赢了：不服气
+        else if (ev === "gotHit" && g.style === "tricky" && rnd() < 0.7) pick = "shrug";                // 腹黑：被打中装作没事
+        else if (ev === "start" && rec(g.c).last === "win") pick = "startWon";                          // 你上局赢了：不服气
         var arr = (L[pick] && L[pick].length) ? L[pick] : (DEF[pick] || DEF[ev]);
         g.bubble = String(arr[Math.floor(rnd() * arr.length)]).slice(0, 24);
       }
@@ -436,7 +450,7 @@
         finishTyping();
         var b = el(".bubble");
         if (!b || !game || game.paused) return;
-        var text = b.textContent, i = 0, base = voiceBase(), a = document.createElement("span"), z = document.createElement("span");
+        var text = b.textContent, i = 0, lastF = 0, base = voiceBase(), a = document.createElement("span"), z = document.createElement("span");
         if (!text) return;
         z.style.visibility = "hidden"; z.textContent = text;
         b.textContent = ""; b.appendChild(a); b.appendChild(z);      // 隐形的后半句先占住位置，气泡不会边打边变宽
@@ -444,8 +458,12 @@
         (function tick() {
           if (!typing || typing.el !== b) return;
           i++; a.textContent = text.slice(0, i); z.textContent = text.slice(i);
-          var ch = text.charAt(i - 1), stop = /[，。！？!?,.…~、；：]/.test(ch);
-          if (soundOn() && ch.trim() && !stop) SFX.blip(base * VOICE[Math.floor(rnd() * VOICE.length)]);
+          var ch = text.charAt(i - 1), stop = /[，。！？!?,.…~、；：]/.test(ch), isT = TONEW.test(ch);
+          if (soundOn() && ch.trim() && !stop) {                       // 标点只停顿；语气词用更高更短的音；不连续两次同一个音高
+            var pool = isT ? VOICE_HI : VOICE, ix;
+            do { ix = Math.floor(rnd() * pool.length); } while (base * pool[ix] === lastF);
+            lastF = base * pool[ix]; SFX.blip(lastF, isT ? 0.045 : 0.06);
+          }
           if (i >= text.length) { typing = null; typeT = null; return; }
           typeT = setTimeout(tick, stop ? 140 : 45);
         })();
@@ -494,6 +512,13 @@
         if (soundOn()) { SFX.init(); SFX.tick(); }
         doLane(l);
       }
+      // 画布固定按 360×520 来画，按屏幕宽高整体缩放：窄屏/矮屏/宽屏都能完整放下
+      function fitScale() {
+        var w = ctx.view.clientWidth - 64, h = ctx.view.clientHeight - 250;
+        return Math.max(0.55, Math.min(w / 360, h / 520, 1.3)).toFixed(3);
+      }
+      function onResize() { var aw = el(".aw"); if (aw) aw.style.setProperty("--s", fitScale()); }
+      window.addEventListener("resize", onResize);
       document.addEventListener("keydown", onKey);
       document.addEventListener("visibilitychange", onVis);
 
@@ -564,13 +589,23 @@
         var b = el(".ball"), sh = el(".bsh");
         if (!b || !b.animate) return;
         var down = by === "opp", y0 = down ? Y.oppBall : Y.meBall, y1 = down ? Y.meHit : Y.oppHit;
-        var kb = [], ks = [], N = 10, i, wd = game.ball && game.ball.wild, x0 = game.ball ? LANE[game.ball.lane] : 50, x1 = game.ball && game.ball.lane ? 96 : 4;
+        var bl = game.ball, wd = down && bl ? bl.wild : null, x0 = bl ? LANE[bl.lane] : 50, x1 = bl && bl.lane ? 96 : 4;
+        var sty = down ? game.style : "normal", hmp = 70, spin = 360, sc = 0.65, sway = 0, warp = 0, ease = down ? "cubic-bezier(.35,0,.85,.7)" : "cubic-bezier(.1,.4,.5,1)";
+        if (wd === "wild") { hmp = 40; spin = 1080; ease = "cubic-bezier(.2,.2,.9,.8)"; }              // 傲娇急眼：又快又歪、疯狂旋转
+        else if (wd === "slip") { hmp = 125; spin = 180; ease = "ease-in-out"; }                        // 手滑：高高飘出去
+        else if (sty === "tricky") { sway = 11; warp = 0.1; }                                           // 腹黑：左右摇摆、半空犹豫
+        else if (sty === "cool") { hmp = 8; sc = 0.25; spin = 90; ease = "linear"; }                   // 高冷：笔直
+        else if (sty === "gentle") { hmp = 105; sway = 6; spin = 180; ease = "ease-in-out"; }           // 温柔：慢慢飘
+        var kb = [], ks = [], N = 16, i;
+        // 注意：只有「飞偏球」才在动画里写横向位置；正常球不写，这样中途变道时球、影子、红圈能一起换
         for (i = 0; i <= N; i++) {
-          var t = i / N, hump = 4 * t * (1 - t), gy = y0 + (y1 - y0) * t;
-          kb.push({ offset: t, left: (wd ? x0 + (x1 - x0) * t : x0) + "%", top: (gy - hump * 70) + "px", transform: "translate(-50%,-50%) scale(" + (0.75 + hump * 0.65) + ") rotate(" + (t * 360) + "deg)" });
-          ks.push({ offset: t, left: (wd ? x0 + (x1 - x0) * t : x0) + "%", top: (gy + 12) + "px", opacity: 0.45 - hump * 0.2, transform: "translate(-50%,-50%) scale(" + (1.1 - hump * 0.5) + ")" });
+          var t0 = i / N, u = Math.min(1, Math.max(0, t0 + warp * Math.sin(2 * Math.PI * t0))), hump = 4 * u * (1 - u), gy = y0 + (y1 - y0) * u, sx = sway * Math.sin(t0 * Math.PI * 3);
+          var f1 = { offset: t0, top: (gy - hump * hmp) + "px", transform: "translate(" + sx.toFixed(1) + "px,0) translate(-50%,-50%) scale(" + (0.75 + hump * sc).toFixed(3) + ") rotate(" + Math.round(u * spin) + "deg)" };
+          var f2 = { offset: t0, top: (gy + 12) + "px", opacity: 0.45 - hump * 0.2, transform: "translate(" + sx.toFixed(1) + "px,0) translate(-50%,-50%) scale(" + (1.1 - hump * 0.5 * hmp / 70).toFixed(3) + ")" };
+          if (wd) { f1.left = f2.left = (x0 + (x1 - x0) * u) + "%"; }
+          kb.push(f1); ks.push(f2);
         }
-        var opt = { duration: dur, easing: down ? "cubic-bezier(.35,0,.85,.7)" : "cubic-bezier(.1,.4,.5,1)", fill: "forwards" };
+        var opt = { duration: dur, easing: ease, fill: "forwards" };
         b.animate(kb, opt);
         if (sh) sh.animate(ks, opt);
         if (trailT) cancelAnimationFrame(trailT);
@@ -580,8 +615,8 @@
           var dt = Math.min(50, Math.max(0, ts - last)); last = ts;
           if (!game.paused) acc += dt;
           if (!game.paused && rnd() < 0.5) {
-            var r1 = b.getBoundingClientRect(), r2 = ar.getBoundingClientRect(), n = rnd() < 0.25 ? 2 : 1, k;
-            for (k = 0; k < n; k++) spawnPuff(ar, r1.left + r1.width / 2 - r2.left, r1.top + r1.height / 2 - r2.top);
+            var r1 = b.getBoundingClientRect(), r2 = ar.getBoundingClientRect(), kk = r2.width / (ar.offsetWidth || 360), n = rnd() < 0.25 ? 2 : 1, k;
+            for (k = 0; k < n; k++) spawnPuff(ar, (r1.left + r1.width / 2 - r2.left) / kk, (r1.top + r1.height / 2 - r2.top) / kk);
           }
           trailT = requestAnimationFrame(puffLoop);
         }
@@ -601,14 +636,15 @@
       function start(c) {
         clearAll();
         var S = (st.d.snowStyle && st.d.snowStyle[c.id]) || {}, sty = S.manual || S.auto || "normal";
-        game = { c: c, style: sty, streak: 0, call: null, slip: sty === "gentle" && rnd() < 0.1, paused: false, turn: null, round: 1, hp: { me: 5, opp: 5 }, phase: "intro", lane: { me: rnd() < 0.5 ? 0 : 1, opp: rnd() < 0.5 ? 0 : 1 }, bubble: "", fx: null, ball: null, tell: null, over: null, splat: null, lost: null,
-          deco: { sh: 0, sg: 0, fc: 0, sm: 0 }, fxo: null, pose: null, locked: false };
+        game = { c: c, style: sty, streak: 0, call: null, react: false, angry: false, paused: false, turn: null, round: 1, hp: { me: 5, opp: 5 }, phase: "intro", lane: { me: rnd() < 0.5 ? 0 : 1, opp: rnd() < 0.5 ? 0 : 1 }, bubble: "", fx: null, ball: null, tell: null, over: null, splat: null, lost: null,
+          deco: { sh: 0, sg: 0, sm: 0 }, fxo: null, pose: null, locked: false };
         say("start"); show(); later(beginDefend, 2200);
       }
       function dur() { return Math.max(850, 1500 - (game.round - 1) * 110); }
       function beginDefend() {
         var ct = chargeMs();
         game.phase = "windup"; game.turn = "defend"; game.fx = null; game.splat = null; game.fxo = null; game.ball = null; game.locked = false; game.bubble = ""; game.call = null;
+        game.angry = game.style === "tsun" && (game.streak >= 2 || game.react);      // 傲娇：快急眼了，头像先发抖
         game.pose = { side: "o", mode: "charge", ct: ct };
         if (game.style === "tricky" && rnd() < 0.6) {                    // 腹黑：先喊一个方向，可能是骗人的
           game.call = rnd() < 0.5 ? 0 : 1;
@@ -619,16 +655,18 @@
         later(throwOpp, ct);
       }
       function throwOpp() {
-        var sty = game.style, r = game.round, D = dur(), wild = null, lane = rnd() < 0.5 ? 0 : 1, pr, pf, real, fake;
-        if (sty === "tsun" && game.streak >= 2) { wild = "wild"; D = Math.round(D * 0.65); game.streak = 0; }      // 傲娇急眼：又快又歪的一球
-        else if (sty === "gentle" && game.slip && r === 1) { wild = "slip"; game.slip = false; }                   // 温柔：手滑
-        else if (sty === "cool") D = Math.round(D * 0.88);                                                           // 高冷：球更快
-        if (game.call != null && !wild) lane = rnd() < 0.5 ? game.call : 1 - game.call;                              // 腹黑：喊的方向一半真一半假
+        var sty = game.style, r = game.round, D = dur(), wild = null, lane = rnd() < 0.5 ? 0 : 1, pr, pf, real, fake, rx = game.react;
+        game.react = false; game.angry = false;
         pr = r >= 3 ? 0.45 : (r === 2 ? 0.2 : 0); pf = r >= 3 ? Math.min(0.45, 0.15 * (r - 2)) : 0;
-        if (sty === "tricky") { pr = r >= 3 ? 0.6 : (r === 2 ? 0.5 : 0.3); pf = 0.5; }
-        else if (sty === "cool") { pr = r >= 3 ? 0.75 : (r === 2 ? 0.7 : 0.6); pf = 0; }
+        if (sty === "tricky") { pr = r >= 3 ? 0.6 : (r === 2 ? 0.5 : 0.3); pf = 0.5; if (rx) { pr = Math.min(0.85, pr + 0.25); pf = 0.7; } }     // 腹黑：被打中后假装没事，下一球变招更勤
+        else if (sty === "cool") { pr = rx ? 0.95 : (r >= 3 ? 0.75 : (r === 2 ? 0.7 : 0.6)); pf = 0; D = Math.round(D * (rx ? 0.8 : 0.88)); }       // 高冷：几乎没反应，但下一球几乎必变招且更快
         else if (sty === "tsun") { pr *= 0.5; pf = 0; }
+        else if (sty === "gentle") D = Math.round(D * 1.1);
+        if (sty === "tsun" && (game.streak >= 2 || rx)) { wild = "wild"; D = Math.round(dur() * 0.45); game.streak = 0; }                 // 傲娇：连躲两次或被打中，下一球必是又快又歪的急眼球
+        else if (sty === "gentle" && rnd() < (rx ? 0.3 : (r === 1 ? 0.1 : 0.06))) { wild = "slip"; D = Math.round(dur() * 1.2); }              // 温柔：手滑，被打中后更慌所以更容易手滑
+        if (game.call != null && !wild) lane = rnd() < 0.5 ? game.call : 1 - game.call;
         real = !wild && rnd() < pr; fake = !wild && !real && rnd() < pf;
+        var oc = el(".char.o"); if (oc) oc.classList.remove("fume");
         game.phase = "defend"; game.bubble = ""; finishTyping();
         var bb0 = el(".bubble"); if (bb0) bb0.remove();                  // 球飞的时候对手不说话
         game.ball = { by: "opp", lane: lane, dur: D, wild: wild };
@@ -695,7 +733,7 @@
       function resolveAttack() {
         var hit = game.aim === game.F;
         game.phase = "after"; game.ball = null; game.splat = null; game.lost = null; game.fxo = null; game.pose = null;
-        if (hit) { game.hp.opp--; game.fx = "opp"; game.lost = "opp"; say("gotHit"); snd("hit"); duck(); later(function () { snd("heart"); }, 170); }
+        if (hit) { game.hp.opp--; game.fx = game.style === "cool" ? null : "opp"; game.lost = "opp"; game.react = true; say("gotHit"); snd("hit"); duck(); later(function () { snd("heart"); }, 170); }
         else { game.splat = { x: LANE[game.aim], y: Y.oppHit + 4 }; say("miss"); snd("land"); hitDeco("back", game.aim); }
         show();
         later(function () {
@@ -708,9 +746,9 @@
       function finish(r) {
         game.phase = "over"; game.over = r; game.ball = null; game.pose = null;
         say(r === "win" ? "oppLose" : (r === "lose" ? "oppWin" : "truce"));
-        var s = stats(); if (r === "win") s.win++; if (r === "lose") s.lose++; if (r === "draw") s.draw = (s.draw || 0) + 1;
-        st.d.snowStats = s; st.d.snowLast = r;
-        if (r === "draw" && !st.d.snowTruce) { st.d.snowTruce = true; roche.ui.toast("解锁隐藏结局：握手言和"); }
+        var s = rec(game.c); if (r === "win") s.win++; if (r === "lose") s.lose++; if (r === "draw") s.draw++;
+        s.last = r;
+        if (r === "draw" && !s.truce) { s.truce = true; roche.ui.toast("解锁隐藏结局：握手言和"); }
         ctx.save(); show();
         if (r === "win") { snd("win"); duck(); } else if (r === "lose") { snd("lose"); duck(); } else { snd("ready"); }
       }
@@ -734,21 +772,22 @@
           '<div class="deco d-gr' + hp("gr") + '" style="right:40px;top:150px;width:48px;height:33px">' + ART.gifts + '</div>' +
           '<div class="deco d-pl' + hp("pl") + '" style="left:6px;top:292px;width:52px;height:36px">' + ART.piles + '</div>' +
           tilt("sh", "left:8px;top:386px;width:26px;height:64px", ART.shovel) +
-          tilt("fc", "right:0;top:240px;width:66px;height:80px", ART.fence) +
           tilt("sg", "right:6px;top:322px;width:54px;height:81px", ART.sign) +
           '<div class="deco d-sm' + (A("sm") ? " knock" : "") + '" style="right:4px;top:416px;width:58px;height:88px;--x0:' + h0[0] + 'px;--y0:' + h0[1] + 'px;--r0:' + h0[2] + 'deg;--x1:' + h1[0] + 'px;--y1:' + h1[1] + 'px;--r1:' + h1[2] + 'deg">' + ART.snowman + '</div>';
       }
       function charHtml(side, img, name) {
         var g = game, lane = side === "o" ? g.lane.opp : g.lane.me, pose = g.pose && g.pose.side === side ? g.pose : null;
         var shake = (side === "o" && g.fx === "opp") || (side === "m" && g.fx === "me");
-        return '<div class="char ' + side + (pose ? " " + pose.mode : "") + '" style="left:' + LANE[lane] + '%' + (pose && pose.ct ? ';--ct:' + pose.ct + 'ms' : "") + '"><div class="aura">' + AURA + '</div>' +
+        var fxs = side === "o" && STY_FX[g.style] ? ";--fx:" + STY_FX[g.style] : "";
+        var badge = side === "o" && STY_GLYPH[g.style] ? '<i class="sty-badge s-' + g.style + '">' + STY_GLYPH[g.style] + '</i>' : "";
+        return '<div class="char ' + side + (pose ? " " + pose.mode : "") + (side === "o" && g.angry ? " fume" : "") + '" style="left:' + LANE[lane] + '%' + (pose && pose.ct ? ';--ct:' + pose.ct + 'ms' : "") + fxs + '"><div class="aura">' + AURA + '</div>' + badge +
           '<div class="body"><div class="av2' + (shake ? " shake" : "") + '">' + avatar(img, name) + (shake ? '<i class="splat"></i>' : "") + '</div></div></div>';
       }
       function arenaHtml() {
         var g = game, c = g.c, ph = g.phase, u = st.user || {};
         var turn = g.turn === "defend" ? "我方防守" : (g.turn === "attack" ? "我方进攻" : "准备");
         var hearts = function (n, side) { var s = ""; for (var i = 0; i < 5; i++) s += (g.lost === side && i === n) ? brokenHeart() : heart(i < n); return s; };
-        var h = '<div class="arena">' + DEFS + '<div class="hill"></div>' + decoHtml() + '<div class="rb">第 ' + g.round + '/' + MAX_ROUND + ' 回合 · ' + turn + '</div>' +
+        var h = '<div class="aw" style="--s:' + fitScale() + '"><div class="ab"><div class="arena">' + DEFS + '<div class="hill"></div>' + decoHtml() + '<div class="rb">第 ' + g.round + '/' + MAX_ROUND + ' 回合 · ' + turn + '</div>' +
           '<div class="hp o">' + e(ctx.nm(c)) + ' ' + hearts(g.hp.opp, "opp") + '</div>' +
           '<div class="mound o" style="left:' + LANE[g.lane.opp] + '%;top:128px"></div>' + charHtml("o", c.avatar, ctx.nm(c)) +
           '<div class="mound" style="left:' + LANE[g.lane.me] + '%;top:442px"></div>' + charHtml("m", u.avatar, ctx.userName()) +
@@ -769,7 +808,7 @@
             '<div><button class="btn" data-act="snow.again">再来一局</button></div></div>';
         }
         if (g.paused) h += PAUSE_HTML;
-        h += '</div>';
+        h += '</div></div></div>';
         var def = g.turn === "defend" && (ph === "windup" || ph === "defend") && !g.locked, att = ph === "attack", isAtt = g.turn === "attack";
         var hint = def ? "躲到另一边！" : (isAtt && ph === "windup" ? "蓄力中…" : (att ? "点一边扔过去" : ""));
         h += '<div class="two"><button class="btn" data-act="snow.lane" data-l="0"' + (def || att ? "" : " disabled") + '>' + (isAtt ? "← 打左边" : "← 往左躲") + '</button>' +
@@ -784,23 +823,33 @@
           '<li><i>2</i><span><b>谁在扔，看颜色</b><small>对手头像发出红光蓄力，就是它要扔了，你防守；你的头像发出蓝白光蓄力，轮到你进攻。红色的球是它的，蓝白的球是你的。</small></span></li>' +
           '<li><i>3</i><span><b>我方防守</b><small>地上的红圈是落点，点按钮躲到另一边。球落地前的最后一刻，位置会锁定，要早点躲。越到后面它越爱变招：球在半空会突然换边，换之前头像会先偏一下，但后面它也会假装偏！</small></span></li>' +
           '<li><i>4</i><span><b>我方进攻</b><small>等你蓄满，才能点左或右扔出去。对手会指一边说「↓ 打这边」，但不一定说真话。你扔出去之后，它有机会反应过来躲开，越到后面越会躲。</small></span></li>' +
-          '<li><i>5</i><span><b>被打中 / 打偏</b><small>被打中会碎掉一颗心。雪球扔偏了，会砸到后面的东西：树会抖，灯泡会晃，木牌、雪人、栅栏会被砸歪。</small></span></li></ul>' +
+          '<li><i>5</i><span><b>被打中 / 打偏</b><small>被打中会碎掉一颗心。雪球扔偏了，会砸到后面的东西：树会抖，灯泡会晃，木牌、雪人会被砸歪。</small></span></li></ul>' +
           '<div class="center"><button class="btn" data-act="snow.ok">' + (go ? "明白了，开战" : "知道了") + '</button></div>';
       }
+      function cleanHtml() {
+        var c = ctx.curChar(), h = ctx.picker(false);
+        function row(w, t, d) { return '<div class="set"><div><b>' + t + '</b><small>' + d + '</small></div><button class="btn ghost sm" data-act="snow.cl" data-w="' + w + '">清除</button></div>'; }
+        if (!c) return h + '<p class="hint">还没有角色。</p>';
+        var r = rec(c);
+        return h + '<p class="hint">当前角色：' + e(ctx.nm(c)) + '　战绩 ' + r.win + ' 胜 ' + r.lose + ' 负' + (r.draw ? ' ' + r.draw + ' 平' : '') + (r.truce ? '　已解锁握手言和' : '') + '</p><div class="cl">' +
+          row("rec", "清除战绩", "这个角色的胜负平记录清零") + row("lines", "清除台词和风格", "已备好的台词、自动和手动风格都删掉，之后可重新准备") +
+          row("truce", "清除隐藏结局记录", "「握手言和」重新算未解锁") + row("char", "清除这个角色的全部雪仗数据", "上面三项一起清") +
+          row("all", "清空所有角色的战绩", "每个角色的战绩和隐藏结局记录；台词和风格保留") + '</div>';
+      }
       function setup() {
-        var c = ctx.curChar(), L = c && lines(c), pend = c && st.jobs["snow:" + c.id], u = st.user || {}, s = stats();
+        var c = ctx.curChar(), L = c && lines(c), pend = c && st.jobs["snow:" + c.id], u = st.user || {}, s = rec(c);
         var S = (c && st.d.snowStyle && st.d.snowStyle[c.id]) || {}, sty = S.manual || S.auto || "normal", note;
         if (pend) note = '<i class="nd"></i>' + e(lineMsg || "正在准备台词…") + '<br>可以先去别处逛逛，好了会提醒你';
         else if (L) note = '台词已备好，不会再花钱。<br><button class="link" data-act="snow.style">对手风格：' + STY_NAME[sty] + (S.manual ? "（手动）" : "（自动判断）") + ' · 点此更改</button>';
         else note = '不准备台词也能开战，会用通用台词；<br>准备一次要调用一次模型，之后永久缓存。';
-        function side(img, name, tag, cls) { return '<div class="vs-side ' + cls + '"><div class="vs-pt">' + avatar(img, name) + '</div><b>' + e(name) + '</b><small>' + tag + '</small></div>'; }
+        function side(img, name, tag, cls, badge) { return '<div class="vs-side ' + cls + '"><div class="vs-pt">' + avatar(img, name) + '</div>' + (badge || "") + '<b>' + e(name) + '</b><small>' + tag + '</small></div>'; }
         var h = '<div class="sel-zone">' + ctx.picker(false) + '</div><div class="vs-zone"><div class="vs-wrap">' +
-          '<div class="vs">' + side(u.avatar, ctx.userName(), "我 方", "L") + '<div class="vs-mk en">VS</div>' + side(c && c.avatar, ctx.nm(c), "对 手", "R") + '</div>' +
+          '<div class="vs">' + side(u.avatar, ctx.userName(), "我 方", "L") + '<div class="vs-mk en">VS</div>' + side(c && c.avatar, ctx.nm(c), "对 手", "R", STY_GLYPH[sty] ? '<i class="sty-badge s-' + sty + '" style="right:calc(50% - 58px);top:-8px">' + STY_GLYPH[sty] + '</i>' : "") + '</div>' +
           '<div class="vs-st"><div class="vs-rec"><i>' + s.win + '</i> 胜　<i>' + s.lose + '</i> 负' + (s.draw ? '　<i>' + s.draw + '</i> 平' : "") + '</div></div>' +
           '<div class="vs-btns"><button class="btn big" data-act="snow.go"' + (c ? "" : " disabled") + '>开 战</button>' +
           '<div class="vs-sub"><button class="btn ghost sm" data-act="snow.rules">玩法说明</button>' +
           '<button class="btn ghost sm" data-act="snow.lines"' + (pend ? " disabled" : "") + '>' + (pend ? "准备中" : (L ? "重新准备台词" : "准备台词")) + '</button>' +
-          '</div>' +
+          '<button class="btn ghost sm" data-act="snow.clean">清理数据</button></div>' +
           '<p class="vs-note">' + note + '</p></div>' +
           '<div class="vol"><label><span>音乐</span><input type="range" min="0" max="100" step="5" value="' + musicVol() + '" data-vol="music"' + (R.duck ? "" : " disabled") + '><em>' + musicVol() + '%</em></label>' +
           '<label><span>音效</span><input type="range" min="0" max="100" step="5" value="' + sfxVol() + '" data-vol="sfx"><em>' + sfxVol() + '%</em></label>' +
@@ -809,11 +858,16 @@
       }
 
       return {
-        init: function () { SFX.setVol(sfxVol() / 100); applyMusic(1); },
-        destroy: function () { clearAll(); document.removeEventListener("keydown", onKey); document.removeEventListener("visibilitychange", onVis); ctx.root.removeEventListener("input", onRange); ctx.root.removeEventListener("change", onRangeDone); },
-        back: function () { if (rules) { rules = null; return true; } if (game) leave(); return false; },
-        view: function () { return ctx.page("Snowball Fight", "雪 仗", game ? arenaHtml() : (rules ? rulesHtml() : setup())); },
-        act: function (name, el0) {
+        init: function () {
+          SFX.setVol(sfxVol() / 100); applyMusic(1);
+          if (st.d.snowStats !== undefined || st.d.snowLast !== undefined || st.d.snowTruce !== undefined || st.d.snowSound !== undefined) {   // 旧的总战绩清零
+            delete st.d.snowStats; delete st.d.snowLast; delete st.d.snowTruce; delete st.d.snowSound; ctx.save();
+          }
+        },
+        destroy: function () { clearAll(); document.removeEventListener("keydown", onKey); window.removeEventListener("resize", onResize); document.removeEventListener("visibilitychange", onVis); ctx.root.removeEventListener("input", onRange); ctx.root.removeEventListener("change", onRangeDone); },
+        back: function () { if (rules) { rules = null; return true; } if (cleanOpen) { cleanOpen = false; return true; } if (game) leave(); return false; },
+        view: function () { return ctx.page("Snowball Fight", "雪 仗", game ? arenaHtml() : (rules ? rulesHtml() : (cleanOpen ? cleanHtml() : setup()))); },
+        act: async function (name, el0) {
           var c = ctx.curChar();
           if (soundOn()) { SFX.init(); if (name !== "lines") SFX.tick(); }   // 音频要在点击里解锁；按钮轻响
           if (name === "go") {
@@ -830,6 +884,20 @@
           if (name === "again") { var c2 = game && game.c; leave(); return c2 ? start(c2) : ctx.render(); }
           if (name === "lane") return doLane(+el0.dataset.l);
           if (name === "resume") return resumeGame();
+          if (name === "clean") { cleanOpen = true; return ctx.render(); }
+          if (name === "cl") {
+            var w = el0.dataset.w, T = { rec: "清除战绩", lines: "清除台词和风格", truce: "清除隐藏结局记录", char: "清除全部雪仗数据", all: "清空所有角色的战绩" };
+            if (w !== "all" && !c) return roche.ui.toast("请先选一个角色");
+            if (!(await roche.ui.confirm({ title: T[w], message: "确定要" + T[w] + "吗？范围：" + (w === "all" ? "所有角色" : "「" + ctx.nm(c) + "」") + "。清掉就找不回来了。" }))) return;
+            if (w === "all") st.d.snowRec = {};
+            else {
+              var r0 = rec(c);
+              if (w === "rec" || w === "char") { r0.win = 0; r0.lose = 0; r0.draw = 0; r0.last = null; }
+              if (w === "truce" || w === "char") r0.truce = false;
+              if (w === "lines" || w === "char") { if (st.d.snowLines) delete st.d.snowLines[c.id]; if (st.d.snowStyle) delete st.d.snowStyle[c.id]; }
+            }
+            ctx.save(); roche.ui.toast("已清除"); return ctx.render();
+          }
           if (name === "style") {
             if (!c) return;
             var ST = st.d.snowStyle = st.d.snowStyle || {}, S2 = ST[c.id] = ST[c.id] || {};
@@ -847,8 +915,8 @@
               var j = await ctx.ask(ctx.sysFor(c, l), "你正在和" + un + "打一场友好的雪仗。以下台词全部是你（角色本人）说给对方听的，注意视角：「你」指你自己，「对方」指" + un + "。" +
                 "请先根据你的人设判断自己在雪仗里的风格，写进 style，只能是这五个之一：tricky（腹黑狡诈）、tsun（傲娇）、gentle（温柔笨拙）、cool（高冷寡言）、normal（普通）。" +
                 "再写你在雪仗里的短台词，只输出 JSON：{" + keys + "}。各键含义：" + Object.keys(EV).map(function (k) { return k + "=" + EV[k]; }).join("；") +
-                "。每个键 3 条，每条不超过 15 个字，符合你的性格和风格，要有感情、有趣、像真人；cool 风格话少，但每个键都必须有台词；" +
-                "wild、annoy 只有 tsun 风格才写，slip 只有 gentle 风格才写，callL、callR 只有 tricky 风格才写，其他风格这几个键给空数组 []；" +
+                "。每个键 3 条，每条不超过 15 个字，符合你的性格和风格，要有感情、有趣、像真人；被打中（gotHit）要体现风格：tsun 反应夸张炸毛，cool 几乎没反应（一两个字），gentle 慌乱又关心对方；cool 风格话少，但每个键都必须有台词；" +
+                "wild、annoy 只有 tsun 风格才写，slip 只有 gentle 风格才写，callL、callR、shrug 只有 tricky 风格才写，其他风格这几个键给空数组 []；" +
                 "句末不要用句号，可以用问号、感叹号、省略号或不加标点；不要出现疼、痛、伤等字眼。", true);
               var out = {};
               Object.keys(EV).forEach(function (k) { out[k] = (Array.isArray(j[k]) ? j[k] : []).map(function (x) { return String(x).replace(/[。.]+$/, "").slice(0, 24); }).filter(Boolean).slice(0, 3); });
