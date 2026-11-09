@@ -25,6 +25,12 @@
 .rcc .wbe{flex:1;min-width:0;line-height:1.4}
 .rcc .wbc{flex:0 0 auto;color:var(--soft);width:20px;text-align:center}
 .rcc .wbstat{margin:10px 0 0;padding:8px 12px;border-radius:8px;background:rgba(255,248,230,.4);box-shadow:inset 0 2px 4px rgba(90,58,24,.2);font-size:13px;color:var(--soft)}
+.rcc .wbov{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:18px}
+.rcc .wbbk{position:absolute;inset:0;background:rgba(20,10,0,.55)}
+.rcc .wbcard{position:relative;width:100%;max-width:520px;max-height:76vh;overflow:auto;padding:20px 18px 18px;border-radius:10px;color:var(--ink);background-color:var(--paper);background-image:var(--tex-paper,none);background-size:256px 256px;box-shadow:inset 0 0 24px rgba(120,76,24,.5),0 0 0 3px #5a3a20,0 10px 24px rgba(0,0,0,.6)}
+.rcc .wbcard h4{margin:0 34px 8px 0;font-size:17px}
+.rcc .wbcard .wbtxt{white-space:pre-wrap;line-height:1.7;font-size:14px}
+.rcc .wbcard .wbx{position:absolute;right:10px;top:10px;width:30px;height:30px;font-size:18px}
 .rcc .wbdiag{margin-top:14px;font-size:11px;color:var(--soft);line-height:1.7;word-break:break-all}
 `;
 
@@ -53,7 +59,7 @@
     create: function (ctx) {
       var roche = ctx.roche, st = ctx.st, e = ctx.esc;
       var cfg = { mode: "shared", def: { cats: [], entries: [] }, chars: {} };
-      var tree = null, treeErr = "", treeSrc = "", sample = "", loading = false, exp = {}, target = "def";
+      var tree = null, treeErr = "", treeSrc = "", sample = "", loading = false, exp = {}, target = "def", viewing = null;
 
       function save() { return roche.storage.set("wb", cfg); }
       function selFor(c) {
@@ -144,7 +150,7 @@
           h += cat.entries.map(function (en) {
             var on = inCat || sel.entries.indexOf(en.id) > -1;
             return '<div class="wbr sub" ' + pad + '><button class="wbk ' + (on ? "on" : "") + '" data-act="worldbook.tent" data-id="' + e(en.id) + '" data-c="' + e(cat.id) + '" aria-label="勾选词条"></button>' +
-              '<span class="wbe">' + e(en.title) + '<small>' + en.content.length + ' 字</small></span></div>';
+              '<button class="wbn" data-act="worldbook.view" data-id="' + e(en.id) + '" data-c="' + e(cat.id) + '"><b style="font-weight:400">' + e(en.title) + '</b><small>' + en.content.length + ' 字 · 点开查看</small></button></div>';
           }).join("") || '<div class="wbr sub" ' + pad + '><small style="color:var(--soft)">这个分类下没有词条</small></div>';
         }
         return h;
@@ -167,12 +173,20 @@
         }).join("") + '</div><p class="hint" style="margin-top:0">★ = 已单独自定义，其余角色跟随默认选择。</p>';
       }
 
+      function overlay() {
+        if (!viewing) return "";
+        var cat = findCat(viewing.c), en = cat && cat.entries.filter(function (x) { return x.id === viewing.id; })[0];
+        if (!en) { viewing = null; return ""; }
+        return '<div class="wbov"><div class="wbbk" data-act="worldbook.closeview"></div><div class="wbcard"><button class="gbtn wbx" data-act="worldbook.closeview" aria-label="关闭">×</button>' +
+          '<h4 class="en">' + e(en.title) + '</h4><div class="wbtxt">' + (e(en.content) || "（这个词条没有内容）") + '</div></div></div>';
+      }
+
       return {
         init: async function () {
           var s = await roche.storage.get("wb");
           if (s && typeof s === "object") { cfg.mode = s.mode === "perChar" ? "perChar" : "shared"; cfg.def = s.def && s.def.cats ? s.def : cfg.def; cfg.chars = s.chars || {}; }
         },
-        back: function () { ctx.go("settings"); return true; },
+        back: function () { if (viewing) { viewing = null; return true; } ctx.go("settings"); return true; },
         view: function () {
           if (tree === null && !loading && !treeErr) loadTree(true);
           if (cfg.mode === "perChar" && target !== "def" && !st.chars.some(function (c) { return c.id === target; })) target = "def";
@@ -191,10 +205,12 @@
               h += '<div class="center" style="margin:0 0 8px"><button class="link" data-act="worldbook.follow">改回跟随默认</button></div>';
             }
           }
-          return ctx.page("World Book", "世 界 书", h + treeHtml(curSel()));
+          return ctx.page("World Book", "世 界 书", h + treeHtml(curSel())) + overlay();
         },
         act: async function (name, el) {
           var id = el.dataset.id, s, i, cat;
+          if (name === "view") { viewing = { id: id, c: el.dataset.c }; return ctx.render(); }
+          if (name === "closeview") { viewing = null; return ctx.render(); }
           if (name === "reload") { await loadTree(true); return; }
           if (name === "mode") { cfg.mode = el.dataset.m; if (cfg.mode === "shared") target = "def"; await save(); return ctx.render(); }
           if (name === "target") { target = id; return ctx.render(); }
