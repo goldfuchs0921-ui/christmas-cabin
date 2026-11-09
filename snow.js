@@ -2,6 +2,7 @@
  * 画面素材 / 样式 / 音效在 snow-art.js（要和本文件一起上传，缺了雪仗打不开）
  * 台词：进入前一次性预生成并缓存（每个角色只花一次钱），游戏中按事件类型挑，所以台词和画面一定对得上
  * 形象：对手用角色头像，我方用你的人设头像；不用生图
+ * v1.7.0：台词生成抽成 R.gens.snow（和「一键生成」共用）
  * v1.5.2：重新准备台词加确认 / 战绩分享（右上角奖杯：战绩卡图片 + 可复制文字 + 可选角色评价）/ 拆出 snow-art.js / 清理旧代码
  * v1.5.1：球跟红圈变道 / 风格可视化 + 被打中反应 / 按角色战绩 + 清理页 / 删栅栏 / 画布自适应缩放 / 哔哔声去重
  * v1.5.0：台词系统 + 哔哔声 + 四种角色风格 + 握手言和 + 开局提示 + 方向键 A/D + 切后台即暂停 */
@@ -46,6 +47,34 @@
   var HEAD = [[0, 0, 0], [0, 0, 16], [7, 4, 36], [13, 20, 66]];       // 雪人头：x, y, 旋转
   var ZONES = { backL: ["tl", "gl", "lt"], backR: ["tr", "gr", "lt"], frontL: ["pl", "sh"], frontR: ["sg", "sm"] };
   var KIND = { tl: "tree", tr: "tree", lt: "lights", gl: "soft", gr: "soft", pl: "soft", sg: "wood", sh: "wood", sm: "snowman" };
+  // 台词生成逻辑：单独点「准备台词」和「一键生成」共用
+  R.gens = R.gens || {};
+  var G = R.gens.snow = {
+    id: "snow", scope: "char", label: "雪仗台词", desc: "每个角色的台词和风格",
+    jobKey: function (c) { return "snow:" + c.id; },
+    has: function (ctx, c) { return !!(ctx.st.d.snowLines && ctx.st.d.snowLines[c.id]); },
+    prompt: function (ctx, c) {
+      var keys = '"style":"normal",' + Object.keys(EV).map(function (k) { return '"' + k + '":["台词","台词","台词"]'; }).join(","), un = ctx.userName();
+      return "你正在和" + un + "打一场友好的雪仗。以下台词全部是你（角色本人）说给对方听的，注意视角：「你」指你自己，「对方」指" + un + "。" +
+        "请先根据你的人设判断自己在雪仗里的风格，写进 style，只能是这五个之一：tricky（腹黑狡诈）、tsun（傲娇）、gentle（温柔笨拙）、cool（高冷寡言）、normal（普通）。" +
+        "再写你在雪仗里的短台词，只输出 JSON：{" + keys + "}。各键含义：" + Object.keys(EV).map(function (k) { return k + "=" + EV[k]; }).join("；") +
+        "。每个键 3 条，每条不超过 15 个字，符合你的性格和风格，要有感情、有趣、像真人；被打中（gotHit）要体现风格：tsun 反应夸张炸毛，cool 几乎没反应（一两个字），gentle 慌乱又关心对方；cool 风格话少，但每个键都必须有台词；" +
+        "wild、annoy 只有 tsun 风格才写，slip 只有 gentle 风格才写，callL、callR、shrug 只有 tricky 风格才写，其他风格这几个键给空数组 []；" +
+        "句末不要用句号，可以用问号、感叹号、省略号或不加标点；不要出现疼、痛、伤等字眼。";
+    },
+    apply: function (ctx, c, j) {
+      if (!j || typeof j !== "object") throw new Error("台词内容不完整，再试一次");
+      var out = {}, st = ctx.st;
+      Object.keys(EV).forEach(function (k) { out[k] = (Array.isArray(j[k]) ? j[k] : []).map(function (x) { return String(x).replace(/[。.]+$/, "").slice(0, 24); }).filter(Boolean).slice(0, 3); });
+      var sy = String(j.style || "").toLowerCase(); if (!STY_NAME[sy]) sy = "normal";
+      st.d.snowStyle = st.d.snowStyle || {}; st.d.snowStyle[c.id] = st.d.snowStyle[c.id] || {}; st.d.snowStyle[c.id].auto = sy;
+      st.d.snowLines = st.d.snowLines || {}; st.d.snowLines[c.id] = out;
+    },
+    run: async function (ctx, c) {
+      var l = await ctx.context(c);
+      G.apply(ctx, c, await ctx.ask(ctx.sysFor(c, l), G.prompt(ctx, c), true));
+    }
+  };
   R.add({
     id: "snow", style: A.css, jobs: "snow:",
     home: { order: 6, en: "Snowball Fight", zh: "雪 仗", desc: "和角色打一场回合制雪仗", icon: "snow", svg: SVG },
@@ -709,19 +738,9 @@
               lineMsg = "正在读取记忆（1/3）…"; ctx.render();
               var l = await ctx.context(c);
               lineMsg = "正在组织请求（2/3）…"; ctx.render();
-              var keys = '"style":"normal",' + Object.keys(EV).map(function (k) { return '"' + k + '":["台词","台词","台词"]'; }).join(","), un = ctx.userName();
+              var pro = G.prompt(ctx, c);
               lineMsg = "等 TA 想台词（3/3）…"; ctx.render();
-              var j = await ctx.ask(ctx.sysFor(c, l), "你正在和" + un + "打一场友好的雪仗。以下台词全部是你（角色本人）说给对方听的，注意视角：「你」指你自己，「对方」指" + un + "。" +
-                "请先根据你的人设判断自己在雪仗里的风格，写进 style，只能是这五个之一：tricky（腹黑狡诈）、tsun（傲娇）、gentle（温柔笨拙）、cool（高冷寡言）、normal（普通）。" +
-                "再写你在雪仗里的短台词，只输出 JSON：{" + keys + "}。各键含义：" + Object.keys(EV).map(function (k) { return k + "=" + EV[k]; }).join("；") +
-                "。每个键 3 条，每条不超过 15 个字，符合你的性格和风格，要有感情、有趣、像真人；被打中（gotHit）要体现风格：tsun 反应夸张炸毛，cool 几乎没反应（一两个字），gentle 慌乱又关心对方；cool 风格话少，但每个键都必须有台词；" +
-                "wild、annoy 只有 tsun 风格才写，slip 只有 gentle 风格才写，callL、callR、shrug 只有 tricky 风格才写，其他风格这几个键给空数组 []；" +
-                "句末不要用句号，可以用问号、感叹号、省略号或不加标点；不要出现疼、痛、伤等字眼。", true);
-              var out = {};
-              Object.keys(EV).forEach(function (k) { out[k] = (Array.isArray(j[k]) ? j[k] : []).map(function (x) { return String(x).replace(/[。.]+$/, "").slice(0, 24); }).filter(Boolean).slice(0, 3); });
-              var sy = String(j.style || "").toLowerCase(); if (!STY_NAME[sy]) sy = "normal";
-              st.d.snowStyle = st.d.snowStyle || {}; st.d.snowStyle[c.id] = st.d.snowStyle[c.id] || {}; st.d.snowStyle[c.id].auto = sy;
-              st.d.snowLines = st.d.snowLines || {}; st.d.snowLines[c.id] = out; lineMsg = "";
+              G.apply(ctx, c, await ctx.ask(ctx.sysFor(c, l), pro, true)); lineMsg = "";
             });
           }
         }
