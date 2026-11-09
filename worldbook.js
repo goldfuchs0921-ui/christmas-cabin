@@ -1,7 +1,7 @@
 /* worldbook.js — 世界书 · 预设 · 正则（三个标签共用一套「勾选才用 / 共用或按角色安排」的界面，各自的勾选分开存）
  * 世界书：从 Roche 读取；勾选才读，没勾的一律不读（常驻条目也一样）；没有字数上限
  * 预设：导入 Roche 导出的预设文件。提示词拼进所有生成功能；输入正则 = 只把匹配到的记忆/聊天发给 AI；输出正则 = 从生成的文字里删掉匹配内容
- * 正则：导入正则卡包。生成的文字在「显示时」按卡包替换（模板里的 HTML 会渲染，已去掉 script 和事件属性），存的仍是 AI 原文
+ * 正则：导入正则卡包。生成的文字在「显示时」按卡包替换（模板里的 HTML 会渲染，已去掉 script 和事件属性），存的仍是 AI 原文；预设和正则都能手动新建、编辑，并带预览
  * 导入的内容只存在插件自己的存储里，默认都不勾选；勾分类 = 整个分类（以后新增的也算），也可以只勾单个条目 */
 (function () {
   "use strict";
@@ -32,9 +32,16 @@
 .rcc .wbcard .wbtxt{white-space:pre-wrap;word-break:break-all;line-height:1.7;font-size:14px}
 .rcc .wbcard .wbx{position:absolute;right:10px;top:10px;width:30px;height:30px;font-size:18px}
 .rcc .wbdiag{margin-top:14px;font-size:11px;color:var(--soft);line-height:1.7;word-break:break-all}
-.rcc .wbpaste{margin:8px 0 12px}
-.rcc .wbpaste textarea{display:block;width:100%;min-height:130px;resize:vertical;font-size:13px;line-height:1.5}
-.rcc .wbpaste .center{margin:8px 0 0}
+.rcc .wbf{display:grid;gap:8px;margin:6px 0 0}
+.rcc .wbf label{display:block;font-size:12px;color:var(--soft);margin:2px 0 0}
+.rcc .wbf .in{display:block;width:100%;font-size:14px}
+.rcc .wbf textarea.in{min-height:84px;resize:vertical;line-height:1.5}
+.rcc .wbf .sw2{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px}
+.rcc .wbpv{margin-top:14px;padding-top:12px;border-top:1px dashed rgba(90,58,24,.45)}
+.rcc .wbpv>b{display:block;font-weight:600;margin-bottom:6px}
+.rcc .wbpv textarea.in{display:block;width:100%;font-size:14px;resize:vertical}
+.rcc .wbpv .out{margin-top:8px;padding:10px 12px;border-radius:8px;background:rgba(255,248,230,.55);box-shadow:inset 0 2px 4px rgba(90,58,24,.2);white-space:pre-wrap;word-break:break-all;line-height:1.7;font-size:14px}
+.rcc .wbpv .out small{display:block;color:var(--soft);font-size:12px;margin-bottom:2px}
 `;
 
   function arr(x) { return Array.isArray(x) ? x : []; }
@@ -90,8 +97,8 @@
       var roche = ctx.roche, st = ctx.st, e = ctx.esc;
       function mk(key) { return { key: key, mode: "shared", def: { cats: [], entries: [] }, chars: {}, lib: [] }; }
       var T = { wb: mk("wb"), pre: mk("pre"), rx: mk("rgx") };
-      var NAME = { wb: "世界书", pre: "预设", rx: "正则" };
-      var tab = "wb", tree = null, treeErr = "", treeSrc = "", sample = "", loading = false, exp = {}, target = "def", viewing = null, pasteOpen = false, BAD = {};
+      var NAME = { wb: "世界书", pre: "预设", rx: "正则", rgx: "正则" };
+      var tab = "wb", tree = null, treeErr = "", treeSrc = "", sample = "", loading = false, exp = {}, target = "def", viewing = null, form = null, BAD = {};
 
       function save(t) {
         var o = { mode: t.mode, def: t.def, chars: t.chars };
@@ -151,15 +158,17 @@
       }
 
       // ---------- 正则：编译 / 输入筛选 / 输出处理 ----------
-      function mkRe(src) {
+      function compile(src) {
         var s = sstr(src).trim();
-        if (!s) return null;
+        if (!s) return { re: null };
         var m = /^\/([\s\S]+)\/([a-z]*)$/.exec(s), p = s, f = "g";
         if (m) { p = m[1]; f = m[2]; if (f.indexOf("g") < 0) f += "g"; }
-        try { return new RegExp(p, f); } catch (err) {
-          if (!BAD[s]) { BAD[s] = 1; roche.ui.toast("有一条正则写错了，已跳过：" + s.slice(0, 18)); }
-          return null;
-        }
+        try { return { re: new RegExp(p, f) }; } catch (err) { return { re: null, err: String(err && err.message || err) }; }
+      }
+      function mkRe(src) {
+        var c = compile(src), s = sstr(src).trim();
+        if (c.err && !BAD[s]) { BAD[s] = 1; roche.ui.toast("有一条正则写错了，已跳过：" + s.slice(0, 18)); }
+        return c.re;
       }
       // 输入：预设里开着的输入正则，只留下匹配到的部分；一条都没匹配到就保持原样，免得把内容全丢了
       function inFilter(text, c) {
@@ -172,7 +181,10 @@
       }
       // 输出：先按预设的输出正则删掉匹配内容，再按正则卡包替换（模板有 HTML 就渲染），返回可以直接放进页面的 HTML
       function outHtml(text, c) {
-        var raw = sstr(text), pres = selectedItems(T.pre, c).filter(function (p) { return p.outOn && !blank(p.outRx); }), cards = selectedItems(T.rx, c), htmls = [];
+        return renderWith(text, selectedItems(T.pre, c).filter(function (p) { return p.outOn && !blank(p.outRx); }), selectedItems(T.rx, c));
+      }
+      function renderWith(text, pres, cards) {
+        var raw = sstr(text), htmls = [];
         if (!pres.length && !cards.length) return e(raw);
         pres.forEach(function (p) { var re = mkRe(p.outRx); if (re) raw = raw.replace(re, "").trim(); });
         cards.forEach(function (en) {
@@ -298,7 +310,7 @@
         }
         if (!ni) throw new Error("里面没有内容（全是空白），没有导入");
         prune(t); await save(t);
-        tab = r.k; pasteOpen = false; st.wbPaste = "";
+        tab = r.k;
         roche.ui.toast("已导入 " + nc + " 个分类、" + ni + " 条" + (skip ? "，跳过 " + skip + " 条空白" : "") + "，默认都没勾选");
         ctx.render();
       }
@@ -319,12 +331,10 @@
           (t.mode === "perChar" ? "on" : "") + '" data-act="worldbook.mode" data-m="perChar">按角色安排</button></div>';
       }
       function importHtml() {
-        var h = '<div class="center" style="margin:4px 0 8px"><button class="btn sm" data-act="worldbook.file">导入文件</button> <button class="btn ghost sm" data-act="worldbook.pasteToggle">' + (pasteOpen ? "收起粘贴" : "粘贴导入") + '</button></div>';
-        if (pasteOpen) h += '<div class="wbpaste"><textarea class="in" data-in="wbPaste" placeholder="把导出的预设或正则卡包的 JSON 文本粘贴到这里">' + e(st.wbPaste || "") + '</textarea><div class="center"><button class="btn sm" data-act="worldbook.pasteGo">导入</button></div></div>';
-        return h;
+        return '<div class="center" style="margin:4px 0 8px"><button class="btn sm" data-act="worldbook.new">手动新建</button> <button class="btn ghost sm" data-act="worldbook.file">导入文件</button></div>';
       }
       function catHtml(t, cat, sel) {
-        var xk = t.key + ":" + cat.id, open = exp[xk];
+        var open = exp[tab + ":" + cat.id];
         var inCat = sel.cats.indexOf(cat.id) > -1, nSel = cat.entries.filter(function (en) { return inCat || sel.entries.indexOf(en.id) > -1; }).length;
         var state = inCat ? "on" : (nSel ? "part" : ""), pad = 'style="padding-left:' + (cat.depth * 16) + 'px"';
         var h = '<div class="wbr" ' + pad + '><button class="wbk ' + state + '" data-act="worldbook.tcat" data-id="' + e(cat.id) + '" aria-label="勾选整个分类"></button>' +
@@ -366,13 +376,108 @@
           return '<button class="chip' + (target === c.id ? " on" : "") + '" data-act="worldbook.target" data-id="' + e(c.id) + '"><div class="av">' + av + '</div><span>' + e(ctx.nm(c)) + (custom ? "★" : "") + '</span></button>';
         }).join("") + '</div><p class="hint" style="margin-top:0">★ = 已单独自定义，其余角色跟随默认选择。</p>';
       }
+      // ---------- 预览 / 新建 / 编辑 ----------
+      function rawItem(t, catId, id) {
+        var cat = t.lib.filter(function (c) { return c.id === catId; })[0];
+        return cat ? (arr(cat.items).filter(function (x) { return x.id === id; })[0] || null) : null;
+      }
+      // 用一条（还没保存也行）正则/预设，对示例文字算出效果
+      function previewHtml(k, v) {
+        var sample = sstr(st.wbPv), h = "";
+        if (blank(sample)) return '<small>在上面输入一段示例文字，点「预览」看效果。</small>';
+        if (k === "rx") {
+          var ce = compile(v.regex);
+          if (!ce.re) return '<small>' + (ce.err ? "正则写得不对：" + e(ce.err) : "还没有填正则") + '</small>';
+          return '<small>替换后的样子：</small>' + renderWith(sample, [], [v]);
+        }
+        var o = compile(v.outRx), n = compile(v.inRx);
+        if (!blank(v.outRx)) h += '<small>输出正则（' + (v.outOn ? "开" : "关，不会生效") + '）：' + (o.err ? "写得不对：" + e(o.err) : "删掉匹配内容后") + '</small>' +
+          ((o.re && v.outOn) ? (e(sample.replace(o.re, "").trim()) || "（全被删掉了）") : e(sample)) + "\n\n";
+        if (!blank(v.inRx)) {
+          var mm = (n.re && v.inOn) ? sample.match(n.re) : null;
+          h += '<small>输入正则（' + (v.inOn ? "开" : "关，不会生效") + '）：' + (n.err ? "写得不对：" + e(n.err) : "发给 AI 的内容") + '</small>' +
+            ((n.re && v.inOn) ? (mm ? e(mm.join("\n")) : "（没有匹配到，实际使用时会发原文）") : e(sample));
+        }
+        return h || '<small>这个预设没有填正则，没有可预览的内容。</small>';
+      }
+      function pvBox(k, v) {
+        return '<div class="wbpv"><b>预览效果</b><textarea class="in" data-in="wbPv" rows="2" placeholder="输入一段示例文字，比如一句 AI 可能会生成的话">' + e(st.wbPv || "") + '</textarea>' +
+          '<div class="center" style="margin:8px 0 0"><button class="btn sm" data-act="worldbook.pv">预览</button></div><div class="out">' + previewHtml(k, v) + '</div></div>';
+      }
+      function formVals() {
+        return form.t === "rx" ? { regex: sstr(st.wbF_regex), html: sstr(st.wbF_html) }
+          : { content: sstr(st.wbF_content), outRx: sstr(st.wbF_outRx), outOn: form.outOn, inRx: sstr(st.wbF_inRx), inOn: form.inOn };
+      }
+      function formHtml() {
+        var t = T[form.t], isRx = form.t === "rx", f;
+        f = '<div class="wbf"><label>放进哪个分类' + (t.lib.length ? "" : "（现在还没有分类，请在下面新建一个）") + '</label>' +
+          (t.lib.length ? '<select class="in" data-in="wbF_cat">' + t.lib.map(function (c) { return '<option value="' + e(c.id) + '"' + (st.wbF_cat === c.id ? " selected" : "") + '>' + e(c.name) + '</option>'; }).join("") + '</select>' : "") +
+          '<input class="in" data-in="wbF_newCat" maxlength="30" placeholder="或者新建一个分类（填了就放进这个）" value="' + e(st.wbF_newCat || "") + '">';
+        if (isRx) f += '<label>名称</label><input class="in" data-in="wbF_name" maxlength="40" placeholder="例如：加粗文本" value="' + e(st.wbF_name || "") + '">' +
+          '<label>正则</label><textarea class="in" data-in="wbF_regex" placeholder="例如：(?:野兽般的|野兽的)?低吼">' + e(st.wbF_regex || "") + '</textarea>' +
+          '<label>替换内容（可以写 HTML；$1 表示括号里匹配到的内容）</label><textarea class="in" data-in="wbF_html" placeholder="例如：粗重且克制的鼻息">' + e(st.wbF_html || "") + '</textarea>';
+        else f += '<label>标题</label><input class="in" data-in="wbF_title" maxlength="40" placeholder="例如：摘要生成器" value="' + e(st.wbF_title || "") + '">' +
+          '<label>提示词</label><textarea class="in" data-in="wbF_content" placeholder="会拼进生成功能的提示词">' + e(st.wbF_content || "") + '</textarea>' +
+          '<div class="sw2"><span>输出正则（删掉生成文字里匹配的内容）</span><button class="sw' + (form.outOn ? " on" : "") + '" data-act="worldbook.ftog" data-k="outOn" aria-label="输出正则开关"><i></i></button></div>' +
+          '<input class="in" data-in="wbF_outRx" placeholder="例如：<think>[\\s\\S]*?</think>" value="' + e(st.wbF_outRx || "") + '">' +
+          '<div class="sw2"><span>输入正则（只把匹配到的记忆和聊天发给 AI）</span><button class="sw' + (form.inOn ? " on" : "") + '" data-act="worldbook.ftog" data-k="inOn" aria-label="输入正则开关"><i></i></button></div>' +
+          '<input class="in" data-in="wbF_inRx" placeholder="例如：(?<=Summary：).*?(?=End)" value="' + e(st.wbF_inRx || "") + '">';
+        f += '</div>' + pvBox(form.t, formVals()) + '<div class="center" style="margin:14px 0 0"><button class="btn" data-act="worldbook.fsave">保存</button> <button class="btn ghost sm" data-act="worldbook.fcancel">取消</button></div>';
+        return '<div class="wbov"><div class="wbbk"></div><div class="wbcard"><button class="gbtn wbx" data-act="worldbook.fcancel" aria-label="关闭">×</button><h4 class="en">' + (form.id ? "编辑" : "新建") + NAME[form.t] + '</h4>' + f + '</div></div>';
+      }
+      function openForm(t, it, catId) {
+        form = { t: t === T.rx ? "rx" : "pre", id: it ? it.id : null, from: catId || null, outOn: it ? !!it.outOn : true, inOn: it ? !!it.inOn : true };
+        st.wbF_cat = catId || (t.lib[0] ? t.lib[0].id : ""); st.wbF_newCat = ""; st.wbPv = "";
+        st.wbF_name = it ? sstr(it.name) : ""; st.wbF_regex = it ? sstr(it.regex) : ""; st.wbF_html = it ? sstr(it.html) : "";
+        st.wbF_title = it ? sstr(it.title) : ""; st.wbF_content = it ? sstr(it.content) : ""; st.wbF_outRx = it ? sstr(it.outRx) : ""; st.wbF_inRx = it ? sstr(it.inRx) : "";
+      }
+      async function saveForm() {
+        var t = T[form.t], isRx = form.t === "rx", item, ce, k;
+        if (isRx) {
+          if (blank(st.wbF_regex)) return roche.ui.toast("正则还没填");
+          ce = compile(st.wbF_regex);
+          if (ce.err) return roche.ui.toast("正则写得不对：" + ce.err);
+          item = { name: sstr(st.wbF_name).trim(), regex: sstr(st.wbF_regex), html: sstr(st.wbF_html) };
+        } else {
+          if (blank(st.wbF_title) && blank(st.wbF_content)) return roche.ui.toast("标题和提示词至少填一个");
+          k = ["wbF_outRx", "wbF_inRx"];
+          for (var i = 0; i < k.length; i++) { ce = compile(st[k[i]]); if (ce.err) return roche.ui.toast((i ? "输入" : "输出") + "正则写得不对：" + ce.err); }
+          item = { title: sstr(st.wbF_title).trim(), content: sstr(st.wbF_content), outRx: sstr(st.wbF_outRx), outOn: form.outOn, inRx: sstr(st.wbF_inRx), inOn: form.inOn };
+        }
+        var nc = sstr(st.wbF_newCat).trim(), cat;
+        if (nc) {
+          cat = t.lib.filter(function (x) { return x.name === nc; })[0];
+          if (!cat) { cat = { id: ctx.uid(), name: nc, scope: isRx ? "local" : "", items: [] }; t.lib.push(cat); }
+        } else cat = t.lib.filter(function (x) { return x.id === st.wbF_cat; })[0];
+        if (!cat) return roche.ui.toast("请选一个分类，或者新建一个");
+        if (form.id) {
+          var old = rawItem(t, form.from, form.id);
+          if (old && form.from === cat.id) Object.keys(item).forEach(function (key) { old[key] = item[key]; });
+          else {
+            if (form.from) t.lib.forEach(function (c2) { if (c2.id === form.from) c2.items = arr(c2.items).filter(function (x) { return x.id !== form.id; }); });
+            item.id = form.id; cat.items.push(item);
+          }
+        } else { item.id = ctx.uid(); cat.items.push(item); }
+        await save(t);
+        form = null; exp[(isRx ? "rx" : "pre") + ":" + cat.id] = true;
+        roche.ui.toast("已保存");
+        ctx.render();
+      }
+      function keepScroll(fn) {
+        var c = ctx.view.querySelector(".wbcard"), y = c ? c.scrollTop : 0, c2;
+        fn(); c2 = ctx.view.querySelector(".wbcard"); if (c2) c2.scrollTop = y;
+      }
       function overlay() {
+        if (form) return formHtml();
         if (!viewing) return "";
-        var t = T[viewing.t], cat = findCat(t, viewing.c), en = cat && cat.entries.filter(function (x) { return x.id === viewing.id; })[0];
+        var t = T[viewing.t], cat = findCat(t, viewing.c), en = cat && cat.entries.filter(function (x) { return x.id === viewing.id; })[0], extra = "";
         if (!en) { viewing = null; return ""; }
+        if (t.key !== "wb") {
+          var it = rawItem(t, viewing.c, viewing.id);
+          extra = (it ? pvBox(viewing.t, it) : "") + '<div class="center" style="margin:12px 0 0"><button class="btn sm" data-act="worldbook.edit">编辑</button> <button class="btn ghost sm" data-act="worldbook.delent">删除这条</button></div>';
+        }
         return '<div class="wbov"><div class="wbbk" data-act="worldbook.closeview"></div><div class="wbcard"><button class="gbtn wbx" data-act="worldbook.closeview" aria-label="关闭">×</button>' +
-          '<h4 class="en">' + e(en.title) + '</h4><div class="wbtxt">' + (e(en.content) || "（这个条目没有内容）") + '</div>' +
-          (t.key !== "wb" ? '<div class="center" style="margin:12px 0 0"><button class="btn ghost sm" data-act="worldbook.delent">删除这条</button></div>' : "") + '</div></div>';
+          '<h4 class="en">' + e(en.title) + '</h4><div class="wbtxt">' + (e(en.content) || "（这个条目没有内容）") + '</div>' + extra + '</div></div>';
       }
 
       return {
@@ -382,7 +487,7 @@
         },
         back: function () {
           if (viewing) { viewing = null; return true; }
-          if (pasteOpen) { pasteOpen = false; return true; }
+          if (form) { form = null; return true; }
           ctx.go("settings"); return true;
         },
         view: function () {
@@ -407,8 +512,8 @@
         },
         act: async function (name, el) {
           var id = el.dataset.id, t = T[tab], s, i, cat;
-          if (name === "tab") { tab = el.dataset.t; pasteOpen = false; viewing = null; return ctx.render(); }
-          if (name === "view") { viewing = { id: id, c: el.dataset.c, t: tab }; return ctx.render(); }
+          if (name === "tab") { tab = el.dataset.t; form = null; viewing = null; return ctx.render(); }
+          if (name === "view") { viewing = { id: id, c: el.dataset.c, t: tab }; st.wbPv = ""; return ctx.render(); }
           if (name === "closeview") { viewing = null; return ctx.render(); }
           if (name === "reload") { await loadTree(true); return; }
           if (name === "mode") { t.mode = el.dataset.m; if (t.mode === "shared") target = "def"; await save(t); return ctx.render(); }
@@ -440,13 +545,17 @@
             }
             await save(t); return ctx.render();
           }
-          // ----- 导入 / 删除（只有预设、正则标签有）-----
-          if (name === "pasteToggle") { pasteOpen = !pasteOpen; return ctx.render(); }
-          if (name === "pasteGo") {
-            if (blank(st.wbPaste)) return roche.ui.toast("先把内容粘贴到框里");
-            try { await doImport(st.wbPaste); } catch (err) { roche.ui.toast("导入失败：" + (err && err.message || err)); }
-            return;
+          // ----- 新建 / 导入 / 删除（只有预设、正则标签有）-----
+          if (name === "new") { openForm(t, null, null); return ctx.render(); }
+          if (name === "edit") {
+            var it0 = viewing && rawItem(T[viewing.t], viewing.c, viewing.id);
+            if (!it0) return;
+            openForm(T[viewing.t], it0, viewing.c); viewing = null; return ctx.render();
           }
+          if (name === "pv") return keepScroll(function () { ctx.render(); });
+          if (name === "ftog") return keepScroll(function () { form[el.dataset.k] = !form[el.dataset.k]; ctx.render(); });
+          if (name === "fcancel") { form = null; return ctx.render(); }
+          if (name === "fsave") return saveForm();
           if (name === "file") {
             var inp = document.createElement("input");
             inp.type = "file";   // 不写 accept：iOS 的文件选择器会把 json 灰掉

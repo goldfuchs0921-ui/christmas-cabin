@@ -34,6 +34,7 @@
       var st = ctx.st, roche = ctx.roche, e = ctx.esc, tab = "wish", open = null, testReveal = false;
       st.wishText = st.wishText || ""; st.letterText = st.letterText || "";
       function revealed(w) { return testReveal || Date.now() >= new Date(w.year, 11, 25).getTime(); }
+      function wishChar(n) { return st.chars.filter(function (x) { return ctx.nm(x) === n; })[0] || null; }
 
       function vWish() {
         var any = st.wishes.length && st.wishes.every(revealed), pw = st.jobs["mail:wish"], lv = st.live["mail:wish"];
@@ -48,7 +49,7 @@
           if (pw && !lv) h += ctx.wait("TA 在读你的愿望，你可以先去别处逛逛");
         }
         if (lv) h += '<div class="paper" data-live="mail:wish">' + e(lv) + '</div>';
-        else if (st.wishReply) h += '<div class="paper" style="min-height:0">' + e(st.wishReply.text) + '\n—— ' + e(st.wishReply.who) + '</div>';
+        else if (st.wishReply) h += '<div class="paper" style="min-height:0">' + ctx.rich(st.wishReply.text, wishChar(st.wishReply.who)) + '\n—— ' + e(st.wishReply.who) + '</div>';
         return h;
       }
       function vLetters() {
@@ -67,7 +68,7 @@
         if (!l) { open = null; return null; }
         var key = "mail:letter:" + l.id, lv = st.live[key];
         return ctx.page("Letter", "回 信", '<div class="paper"><div class="stamp">★</div><div class="pm">北极邮局<br>' + ctx.fmt(l.replyAt) + '</div><div style="padding-top:40px">' +
-          (lv ? '<span data-live="' + key + '">' + e(lv) + '</span>' : e(l.reply || "")) + '</div></div>' + (st.jobs[key] && !lv ? ctx.wait("圣诞老人在写回信，你可以先去别处逛逛") : ""));
+          (lv ? '<span data-live="' + key + '">' + e(lv) + '</span>' : ctx.rich(l.reply || "", ctx.charById(l.charId))) + '</div></div>' + (st.jobs[key] && !lv ? ctx.wait("圣诞老人在写回信，你可以先去别处逛逛") : ""));
       }
 
       return {

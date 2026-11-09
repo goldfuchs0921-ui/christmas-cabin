@@ -45,7 +45,7 @@
           }
           if (ps && !lv) h += ctx.wait("大家正在拆礼物，你可以先去别处逛逛");
           if (lv) h += '<div class="scene" data-live="' + KEY + '">' + e(lv) + '</div>';
-          else if (st.d.scene) h += '<div class="scene">' + e(st.d.scene) + '</div>';
+          else if (st.d.scene) h += '<div class="scene">' + ctx.rich(st.d.scene) + '</div>';
           return ctx.page("Secret Santa", "神 秘 圣 诞 老 人", h);
         },
         act: async function (name) {

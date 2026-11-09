@@ -1,4 +1,4 @@
-/* 圣诞小屋 v1.7.0 — 核心文件（入口）
+/* 圣诞小屋 v1.8.0 — 核心文件（入口）
  * 负责：加载模块、共享状态、AI 调用（流式可选）、后台任务、路由、事件分发
  * 界面和功能都在 modules/ 里，哪里不对改哪个文件：
  *   （所有文件都直接放在仓库最外层，不用文件夹）
@@ -6,7 +6,7 @@
  */
 (function () {
   "use strict";
-  var VER = "1.7.0";
+  var VER = "1.8.0";
   var BASE = "https://raw.githubusercontent.com/goldfuchs0921-ui/christmas-cabin/main/";
   try {
     var cs = document.currentScript;
@@ -151,6 +151,8 @@
           return b;
         }
 
+        // 预设里的输入正则：只把匹配到的记忆/聊天发给 AI（没勾预设就原样）
+        function inFilter(t, c) { try { return (R.worldbook && R.worldbook.inFilter) ? R.worldbook.inFilter(t, c) : t; } catch (e) { return t; } }
         // 记忆 + 最近聊天（都会过滤掉带疼痛/不适/负面的句子）
         async function context(c) {
           if (!c) return "";
@@ -175,7 +177,13 @@
               if (ct) parts.push("【近期聊天片段】\n" + ct);
             } catch (e) { /* 读不到就算了 */ }
           }
-          return parts.join("\n");
+          return inFilter(parts.join("\n"), c);
+        }
+        function presetOf(c) {
+          try {
+            var p = (R.worldbook && R.worldbook.presetText) ? R.worldbook.presetText(c) : "";
+            return p ? "【预设（用户勾选的额外要求，请遵守）】\n" + p + "\n" : "";
+          } catch (e) { return ""; }
         }
         function sysFor(c, ctxText) {
           var u = st.user || {};
@@ -184,7 +192,7 @@
             "【对方】" + userName() + (u.persona ? "：" + String(u.persona).slice(0, 300) : "") + "\n" +
             "【你对对方已有的了解（只取其中愉快的、喜好相关的部分）】\n" + (ctxText || "（暂无，请根据人设合理推测）") + "\n" +
             (st.world[c.id] ? "【世界设定（来自世界书，是你所处世界的背景，按需自然使用，不要生硬复述）】\n" + st.world[c.id] + "\n" : "") +
-            "【硬性规则】只使用对方的喜好和愉快的话题；绝不提及疼痛、疾病、不适、负面经历或让人难过的事；" +
+            presetOf(c) + "【硬性规则】只使用对方的喜好和愉快的话题；绝不提及疼痛、疾病、不适、负面经历或让人难过的事；" +
             "不要出现“记忆”“系统”“AI”等字样；不要使用 emoji；不要写多余的说明。";
         }
 
@@ -270,7 +278,7 @@
         }
         function wait(text) { return '<div class="wait"><i></i><span>' + text + '</span></div>'; }
 
-        var ctx = { roche: roche, st: st, cfg: cfg, root: root, view: view, esc: esc, nm: nm, uid: uid, fmt: fmt, imgSrc: imgSrc, derange: derange,
+        var ctx = { rich: function (t, c) { try { return (R.worldbook && R.worldbook.out) ? R.worldbook.out(t, c) : esc(t); } catch (err) { return esc(t); } }, roche: roche, st: st, cfg: cfg, root: root, view: view, esc: esc, nm: nm, uid: uid, fmt: fmt, imgSrc: imgSrc, derange: derange,
           page: page, icon: icon, picker: picker, wait: wait, curChar: curChar, charById: charById, userName: userName, context: context,
           sysFor: sysFor, worldOf: function (c) { return (c && st.world[c.id]) || ""; }, ask: ask, job: job, live: live, hasJob: hasJob, render: render, go: go, save: save, saveCfg: saveCfg, applyCfg: applyCfg, R: R };
 

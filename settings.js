@@ -50,7 +50,7 @@
         return row("显示与声音", "飘雪 " + on(cfg.snow) + " · 切后台暂停音乐 " + on(cfg.bgPause), 'data-act="settings.open" data-p="display"') +
           row("生成设置", "流式 " + on(cfg.stream) + " · 读取记忆 " + on(cfg.memory) + " · 最近聊天 " + cfg.chatLines + " 条", 'data-act="settings.open" data-p="gen"') +
           row("一键生成", "模式：" + (cfg.batchMode === "once" ? "一次调用" : "逐项依次调用"), 'data-act="settings.open" data-p="batch"') +
-          row("世界书", (R.worldbook && R.worldbook.brief) ? R.worldbook.brief() : "选择生成时参考哪些世界书", 'data-act="core.go" data-v="worldbook"') +
+          row("世界书 · 预设 · 正则", (R.worldbook && R.worldbook.brief) ? R.worldbook.brief() : "世界书、预设、正则的勾选与导入", 'data-act="core.go" data-v="worldbook"') +
           row("数据管理", "清空愿望、信件和生成结果", 'data-act="settings.open" data-p="data"') +
           row("高级与关于", "测试模式 " + on(cfg.test) + " · 版本 v" + R.ver, 'data-act="settings.open" data-p="about"');
       }
