@@ -13,7 +13,21 @@
 .rcc .wbtabs button.on{background:linear-gradient(#f9e3a0,#dba93c 52%,#b07a1e);border-color:#6e4710;font-weight:600;color:#3a2208}
 .rcc .wb{margin:8px 0}
 .rcc .wbr{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed rgba(90,58,24,.35)}
-.rcc .wbr.sub{padding-left:14px}
+.rcc .wbcat{margin-top:12px;padding:9px 10px;border-bottom:0;border-left:4px solid #8a5a1c;border-radius:6px;background:rgba(120,80,30,.16)}
+.rcc .wbcat .wbn b{font-size:15px}
+.rcc .wbsel{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:1px}
+.rcc .wbsel em{font-style:normal;font-size:10px;color:var(--soft)}
+.rcc .wbk.big{width:26px;height:26px;border-radius:7px}
+.rcc .wbk.big.on::after{left:7px;top:2px;width:7px;height:13px;border-width:0 3px 3px 0}
+.rcc .wbk.big.part::after{left:4px;top:10px;width:12px}
+.rcc .wbr.sub{padding:7px 0 7px 12px;border-left:2px solid rgba(138,90,28,.45)}
+.rcc .wbr.sub .wbk{width:18px;height:18px;border-radius:50%}
+.rcc .wbr.sub .wbk.on::after{left:4px;top:1px;width:4px;height:8px;border-width:0 2px 2px 0}
+.rcc .wbr .wbk.del{border-color:#a3293a;border-radius:4px;background:rgba(255,235,235,.6)}
+.rcc .wbr .wbk.del.on{background:#a3293a;border-color:#6e1522}
+.rcc .wbr .wbk.del.on::after{content:"×";left:0;top:-3px;width:100%;height:auto;border:0;transform:none;color:#fff;font-size:16px;line-height:18px;text-align:center}
+.rcc .wbmbar{margin:10px 0 0;padding:8px 12px;border-radius:8px;background:rgba(163,41,58,.14);box-shadow:inset 0 0 0 1px rgba(163,41,58,.55);color:#7a1d2c;font-size:13px}
+.rcc .btn.danger{background:linear-gradient(#e08a94,#c0485a 52%,#8f1f33);color:#fff;border-color:#6e1522;text-shadow:none}
 .rcc .wbk{flex:0 0 auto;position:relative;width:22px;height:22px;padding:0;border-radius:5px;border:2px solid #8a6a45;background:rgba(255,248,230,.5)}
 .rcc .wbk.on{background:#4f7a4a;border-color:#2f4f2c}
 .rcc .wbk.on::after{content:"";position:absolute;left:5px;top:1px;width:6px;height:11px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
@@ -98,7 +112,7 @@
       function mk(key) { return { key: key, mode: "shared", def: { cats: [], entries: [] }, chars: {}, lib: [] }; }
       var T = { wb: mk("wb"), pre: mk("pre"), rx: mk("rgx") };
       var NAME = { wb: "世界书", pre: "预设", rx: "正则", rgx: "正则" };
-      var tab = "wb", tree = null, treeErr = "", treeSrc = "", sample = "", loading = false, exp = {}, target = "def", viewing = null, form = null, BAD = {};
+      var tab = "wb", tree = null, treeErr = "", treeSrc = "", sample = "", loading = false, exp = {}, target = "def", viewing = null, form = null, mng = null, BAD = {};
 
       function save(t) {
         var o = { mode: t.mode, def: t.def, chars: t.chars };
@@ -331,22 +345,29 @@
           (t.mode === "perChar" ? "on" : "") + '" data-act="worldbook.mode" data-m="perChar">按角色安排</button></div>';
       }
       function importHtml() {
-        return '<div class="center" style="margin:4px 0 8px"><button class="btn sm" data-act="worldbook.new">手动新建</button> <button class="btn ghost sm" data-act="worldbook.file">导入文件</button></div>';
+        return '<div class="center" style="margin:4px 0 8px"><button class="btn sm" data-act="worldbook.new">手动新建</button> <button class="btn ghost sm" data-act="worldbook.file">导入文件</button> <button class="btn ghost sm" data-act="worldbook.mng">管理</button></div>';
+      }
+      function mngBar(n) {
+        return '<div class="wbmbar">管理模式：勾选要删除的条目（分类不能在这里勾，要删分类请回普通模式点「删除这个分类」）。已选 ' + n + ' 条。</div>' +
+          '<div class="center" style="margin:8px 0"><button class="btn danger sm" data-act="worldbook.delsel"' + (n ? "" : " disabled") + '>删除已选（' + n + '）</button> <button class="btn ghost sm" data-act="worldbook.mngoff">完成</button></div>';
       }
       function catHtml(t, cat, sel) {
-        var open = exp[tab + ":" + cat.id];
+        var open = mng ? true : exp[tab + ":" + cat.id], ind = cat.depth * 16, sub = 'style="margin-left:' + (ind + 12) + 'px"';
         var inCat = sel.cats.indexOf(cat.id) > -1, nSel = cat.entries.filter(function (en) { return inCat || sel.entries.indexOf(en.id) > -1; }).length;
-        var state = inCat ? "on" : (nSel ? "part" : ""), pad = 'style="padding-left:' + (cat.depth * 16) + 'px"';
-        var h = '<div class="wbr" ' + pad + '><button class="wbk ' + state + '" data-act="worldbook.tcat" data-id="' + e(cat.id) + '" aria-label="勾选整个分类"></button>' +
-          '<button class="wbn" data-act="worldbook.exp" data-id="' + e(cat.id) + '"><b>' + e(cat.name) + '</b><small>' + cat.entries.length + ' 条' + (nSel ? "，已选 " + nSel : "") + '</small></button>' +
-          '<span class="wbc">' + (open ? "▾" : "▸") + '</span></div>';
+        var state = inCat ? "on" : (nSel ? "part" : "");
+        var h = '<div class="wbr wbcat" style="margin-left:' + ind + 'px">' +
+          (mng ? "" : '<span class="wbsel"><button class="wbk big ' + state + '" data-act="worldbook.tcat" data-id="' + e(cat.id) + '" aria-label="勾选整个分类"></button><em>全选</em></span>') +
+          '<button class="wbn" data-act="worldbook.exp" data-id="' + e(cat.id) + '"><b>' + e(cat.name) + '</b><small>' + cat.entries.length + ' 条' + ((!mng && nSel) ? "，已选 " + nSel : "") + '</small></button>' +
+          (mng ? "" : '<span class="wbc">' + (open ? "▾" : "▸") + '</span>') + '</div>';
         if (open) {
           h += cat.entries.map(function (en) {
             var on = inCat || sel.entries.indexOf(en.id) > -1;
-            return '<div class="wbr sub" ' + pad + '><button class="wbk ' + (on ? "on" : "") + '" data-act="worldbook.tent" data-id="' + e(en.id) + '" data-c="' + e(cat.id) + '" aria-label="勾选条目"></button>' +
+            var chk = mng ? '<button class="wbk del' + (mng.ids[en.id] ? " on" : "") + '" data-act="worldbook.mtog" data-id="' + e(en.id) + '" aria-label="勾选要删除的条目"></button>'
+              : '<button class="wbk ' + (on ? "on" : "") + '" data-act="worldbook.tent" data-id="' + e(en.id) + '" data-c="' + e(cat.id) + '" aria-label="勾选条目"></button>';
+            return '<div class="wbr sub" ' + sub + '>' + chk +
               '<button class="wbn" data-act="worldbook.view" data-id="' + e(en.id) + '" data-c="' + e(cat.id) + '"><b style="font-weight:400">' + e(en.title) + '</b><small>' + sizeOf(en) + ' 字 · 点开查看</small></button></div>';
-          }).join("") || '<div class="wbr sub" ' + pad + '><small style="color:var(--soft)">这个分类下没有内容</small></div>';
-          if (t.key !== "wb") h += '<div class="wbr sub" ' + pad + '><button class="link" data-act="worldbook.delcat" data-id="' + e(cat.id) + '">删除这个分类</button></div>';
+          }).join("") || '<div class="wbr sub" ' + sub + '><small style="color:var(--soft)">这个分类下没有内容</small></div>';
+          if (t.key !== "wb" && !mng) h += '<div class="wbr sub" ' + sub + '><button class="link" data-act="worldbook.delcat" data-id="' + e(cat.id) + '">删除这个分类</button></div>';
         }
         return h;
       }
@@ -356,9 +377,9 @@
           gs = groups(t);
           if (!gs.length) return '<p class="hint">还没有导入内容。点上面的「导入文件」或「粘贴导入」，导入从 Roche 导出的' + (t.key === "pre" ? "预设" : "正则卡包") + '。</p>';
           s = stat(t, sel);
-          return '<div class="wb">' + gs.map(function (c) { return catHtml(t, c, sel); }).join("") + '</div>' +
+          return '<div class="wb">' + gs.map(function (c) { return catHtml(t, c, sel); }).join("") + '</div>' + (mng ? "" :
             '<div class="wbstat">已选 ' + s.n + ' 条（导入的内容默认都不勾选）</div>' +
-            '<div class="center" style="margin:10px 0 0"><button class="link" data-act="worldbook.clear">清空全部' + NAME[t.key] + '</button></div>';
+            '<div class="center" style="margin:10px 0 0"><button class="link" data-act="worldbook.clear">清空全部' + NAME[t.key] + '</button></div>');
         }
         if (loading && !tree) return ctx.wait("正在读取世界书…");
         if (treeErr) return '<p class="hint">' + e(treeErr) + '</p><div class="center"><button class="btn sm" data-act="worldbook.reload">重新读取</button></div>';
@@ -488,12 +509,14 @@
         back: function () {
           if (viewing) { viewing = null; return true; }
           if (form) { form = null; return true; }
+          if (mng) { mng = null; return true; }
           ctx.go("settings"); return true;
         },
         view: function () {
           var t = T[tab];
           if (tab === "wb" && tree === null && !loading && !treeErr) loadTree(true);
           if (t.mode === "perChar" && target !== "def" && !st.chars.some(function (c) { return c.id === target; })) target = "def";
+          if (mng) return ctx.page("Library", "世界书 · 预设 · 正则", tabsHtml() + mngBar(Object.keys(mng.ids).length) + treeHtml(t, curSel(t))) + overlay();
           var h = tabsHtml() + hintHtml() + modeHtml(t);
           if (tab !== "wb") h += importHtml();
           if (t.mode === "perChar") {
@@ -512,7 +535,7 @@
         },
         act: async function (name, el) {
           var id = el.dataset.id, t = T[tab], s, i, cat;
-          if (name === "tab") { tab = el.dataset.t; form = null; viewing = null; return ctx.render(); }
+          if (name === "tab") { tab = el.dataset.t; form = null; mng = null; viewing = null; return ctx.render(); }
           if (name === "view") { viewing = { id: id, c: el.dataset.c, t: tab }; st.wbPv = ""; return ctx.render(); }
           if (name === "closeview") { viewing = null; return ctx.render(); }
           if (name === "reload") { await loadTree(true); return; }
@@ -546,6 +569,20 @@
             await save(t); return ctx.render();
           }
           // ----- 新建 / 导入 / 删除（只有预设、正则标签有）-----
+          if (name === "mng") { if (t.key === "wb") return; mng = { ids: {} }; viewing = null; return ctx.render(); }
+          if (name === "mngoff") { mng = null; return ctx.render(); }
+          if (name === "mtog") { if (!mng) return; if (mng.ids[id]) delete mng.ids[id]; else mng.ids[id] = 1; return ctx.render(); }
+          if (name === "delsel") {
+            if (!mng || t.key === "wb") return;
+            var names = [];
+            t.lib.forEach(function (c3) { arr(c3.items).forEach(function (it) { if (mng.ids[it.id]) names.push(it.title || it.name || "（未命名）"); }); });
+            if (!names.length) return;
+            var shown = names.slice(0, 5).map(function (n) { return "「" + n + "」"; }).join("、") + (names.length > 5 ? " 等" : "");
+            if (!(await roche.ui.confirm({ title: "删除所选", message: "确定删除这 " + names.length + " 条吗？" + shown + "。删掉就找不回来了。" }))) return;
+            t.lib.forEach(function (c3) { c3.items = arr(c3.items).filter(function (x) { return !mng.ids[x.id]; }); });
+            prune(t); await save(t); mng = { ids: {} };
+            roche.ui.toast("已删除 " + names.length + " 条"); return ctx.render();
+          }
           if (name === "new") { openForm(t, null, null); return ctx.render(); }
           if (name === "edit") {
             var it0 = viewing && rawItem(T[viewing.t], viewing.c, viewing.id);
