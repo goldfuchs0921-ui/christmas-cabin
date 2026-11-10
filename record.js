@@ -113,7 +113,7 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
 .rcc .mq .tr{display:inline-block;white-space:nowrap}
 .rcc .mq .tr em{display:inline-block;font-style:normal}
 .rcc .mq .tr em+em{margin-left:32px}
-.rcc .mq .tr.run{animation:rcc-mq var(--mt,8s) linear 1s infinite}
+.rcc .mq .tr.run{animation:rcc-mq var(--mt,8s) linear 2s infinite}
 @keyframes rcc-mq{from{transform:translateX(0)}to{transform:translateX(var(--mq,0px))}}
 @media (prefers-reduced-motion:reduce){.rcc b.mq{text-overflow:ellipsis}.rcc .mq .tr,.rcc .mq .tr em{display:inline}}
 .rcc .songs li.cur .sg b{color:var(--berry)}
@@ -184,7 +184,7 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
             if (w - b.clientWidth > 2) {
               tr.appendChild(em.cloneNode(true));
               tr.style.setProperty("--mq", -(w + 32) + "px");
-              tr.style.setProperty("--mt", ((w + 32) / 45).toFixed(2) + "s");
+              tr.style.setProperty("--mt", ((w + 32) / 40).toFixed(2) + "s");
               tr.classList.add("run");
             }
           }
