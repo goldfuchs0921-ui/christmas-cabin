@@ -185,7 +185,7 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
               tr.appendChild(em.cloneNode(true));
               tr.style.setProperty("--mq", -(w + 32) + "px");
               var sp = b.closest(".rfl") ? 28 : 40;   
-tr.style.setProperty("--mt", ((w + 32) / sp).toFixed(2) + "s");
+tr.style.setProperty("--mt", ((w + 30) / sp).toFixed(2) + "s");
               tr.classList.add("run");
             }
           }
