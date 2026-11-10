@@ -15,6 +15,10 @@
   var SVG = '<svg viewBox="0 0 48 48" fill="none" stroke="#8a5a1c" stroke-width="2.2"><path d="M10 8h22a6 6 0 016 6v26H16a6 6 0 01-6-6z" fill="rgba(255,255,255,.3)"/><path d="M16 16h16M16 23h16M16 30h9"/><path d="M34 38l8-8" stroke="#a3293a"/></svg>';
   var CSS = `
 .rcc .mm-g{margin:16px 0 4px;font-size:12px;letter-spacing:.3em;color:var(--soft)}
+.rcc .mm-gh{display:flex;align-items:center;gap:10px;width:100%;margin-top:12px;padding:9px 10px;border:0;border-left:4px solid #8a5a1c;border-radius:6px;background:rgba(120,80,30,.16);text-align:left;color:var(--ink)}
+.rcc .mm-gh b{flex:1;min-width:0}
+.rcc .mm-gh small{color:var(--soft);font-size:12px}
+.rcc .mm-gh span{color:var(--soft);width:18px;text-align:center}
 .rcc .mm-r{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px dashed rgba(90,58,24,.4)}
 .rcc .mk{flex:0 0 auto;position:relative;width:22px;height:22px;margin-top:2px;padding:0;border-radius:5px;border:2px solid #8a6a45;background:rgba(255,248,230,.5)}
 .rcc .mk.on{background:#4f7a4a;border-color:#2f4f2c}
@@ -42,7 +46,7 @@
     create: function (ctx) {
       var roche = ctx.roche, st = ctx.st, e = ctx.esc;
       var tab = "new", step = "pick", sel = {}, drafts = [], log = [], cfg = { prompt: "" };
-      var convs = [], convLoaded = false, wmsg = "", editing = -1, editText = "", viewPrompt = false;
+      var open = {}, convs = [], convLoaded = false, wmsg = "", editing = -1, editText = "", viewPrompt = false;
 
       function un() { return ctx.userName(); }
       function yr() { return new Date().getFullYear(); }
@@ -139,8 +143,9 @@
         if (!gs.length) return '<p class="hint">还没有可以写入的内容。先去好孩子名单、礼物盲盒、信箱、雪仗等地方生成一些吧。</p>';
         var h = '<p class="hint">勾选要写成记忆的内容。下一步先生成草稿，你可以改，确认后才会真正写入。</p>';
         gs.forEach(function (g) {
-          h += '<div class="mm-g">' + e(g.name) + '</div>';
-          g.items.forEach(function (it) {
+          var nSel = g.items.filter(function (it) { return sel[it.key]; }).length, isOpen = open[g.id] === undefined ? gs.length === 1 : open[g.id];
+          h += '<button class="mm-gh" data-act="memory.gexp" data-id="' + e(g.id) + '"><b>' + e(g.name) + '</b><small>' + g.items.length + ' 项' + (nSel ? "，已选 " + nSel : "") + '</small><span>' + (isOpen ? "▾" : "▸") + '</span></button>';
+          if (isOpen) g.items.forEach(function (it) {
             var w = wroteCount(it.key);
             h += '<div class="mm-r"><button class="mk' + (sel[it.key] ? " on" : "") + '" data-act="memory.tog" data-k="' + e(it.key) + '" aria-label="勾选"></button>' +
               '<span class="mm-t"><b>' + e(it.title) + '</b><small>' + e(clip(it.text, 44)) + (w ? " · 已写入 " + w + " 次" : "") + '</small></span></div>';
@@ -249,7 +254,7 @@
               var id = exId(r);
               wmsg = "正在读回核对（" + (i + 1) + "/" + todo.length + "）…"; ctx.render();
               var chk = await verify(d.conv, id, text);
-              log.push({ key: d.key, memId: id, conv: d.conv, convName: convName(d.conv), title: d.title, text: text, at: Date.now(), check: chk });
+              log.push({ key: d.key, memId: id, conv: d.conv, convName: convName(d.conv), who: d.who, title: d.title, text: text, at: Date.now(), check: chk });
               await roche.storage.set("memLog", log);
               d.done = true; d.err = ""; ok++;
             } catch (err) { d.err = String(err && err.message || err); }
@@ -280,6 +285,7 @@
         },
         act: async function (name, el) {
           var i = +el.dataset.i, d = drafts[i], x = log[i];
+          if (name === "gexp") { var gid = el.dataset.id; open[gid] = !(open[gid] === undefined ? groups().length === 1 : open[gid]); return ctx.render(); }
           if (name === "tab") { tab = el.dataset.t; editing = -1; return ctx.render(); }
           if (name === "tog") { sel[el.dataset.k] = !sel[el.dataset.k]; return ctx.render(); }
           if (name === "go") {
@@ -310,7 +316,15 @@
             var t = String(editText || "").trim();
             if (!x || !x.memId) return;
             if (!t) return roche.ui.toast("记忆不能是空的");
-            await roche.memory.update(x.memId, { summaryText: t, action: t });
+            try { await roche.memory.update(x.memId, { summaryText: t, action: t }); }
+            catch (err) {
+              if (!/not.?found/i.test(String(err && err.message || err))) throw err;
+              // update 找不到这条：改成「先写新的，再删旧的」
+              var old = x.memId, r = await roche.memory.write({ conversationId: x.conv, summaryText: t, who: x.who || [un()], action: t,
+                when: new Date().toLocaleString("zh-CN", { hour12: false }), where: "圣诞小屋", source: "plugin" });
+              x.memId = exId(r); x.check = await verify(x.conv, x.memId, t);
+              try { await roche.memory.delete(old); } catch (e2) { roche.ui.toast("新的已写入，但旧的没删掉，请到 Roche 里手动删除旧的那条"); }
+            }
             x.text = t; editing = -1; await roche.storage.set("memLog", log);
             roche.ui.toast("已修改"); return ctx.render();
           }
