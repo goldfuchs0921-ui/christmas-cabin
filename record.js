@@ -90,7 +90,8 @@
   var CSS = `
 .rcc .disc{display:block;width:100%;height:100%;border-radius:50%;will-change:transform;box-shadow:0 3px 8px rgba(0,0,0,.6),inset 0 0 0 2px #000;
 background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%,transparent 30% 68%,rgba(255,255,255,.16) 74%,transparent 80%),radial-gradient(circle,#f3e6c8 0 3%,#c98d26 3% 13%,#a3293a 13% 30%,#111 30% 33%,transparent 33%),repeating-radial-gradient(circle,#151515 0 2px,#262626 2px 3px)}
-.rcc .tt{position:relative;width:min(100%,300px);height:230px;margin:0 auto 12px;border-radius:12px;box-shadow:inset 0 0 18px rgba(0,0,0,.65),0 0 0 3px #2c180c,0 8px 14px rgba(0,0,0,.5)}
+.rcc .ttw{position:relative;width:min(100%,300px);margin:0 auto 12px}
+.rcc .tt{position:absolute;left:0;top:0;width:300px;height:230px;transform-origin:0 0;border-radius:12px;box-shadow:inset 0 0 18px rgba(0,0,0,.65),0 0 0 3px #2c180c,0 8px 14px rgba(0,0,0,.5)}
 .rcc .tt .plate{position:absolute;left:24px;top:22px;width:186px;height:186px}
 .rcc .tt .arm{position:absolute;right:30px;top:18px;width:8px;height:122px;border-radius:4px;background:linear-gradient(90deg,#f6dc8f,#c9962f 50%,#8a5a1c);box-shadow:0 2px 4px rgba(0,0,0,.6);transform-origin:50% 7px;transform:rotate(-8deg);will-change:transform}
 .rcc .tt .arm::after{content:"";position:absolute;left:-4px;bottom:-12px;width:16px;height:20px;border-radius:3px 3px 7px 7px;background:linear-gradient(#e3b341,#8a5a1c);box-shadow:0 2px 3px rgba(0,0,0,.6)}
@@ -105,8 +106,13 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
 .rcc .songs li{display:flex;align-items:center;border-bottom:1px dashed rgba(90,58,24,.4)}
 .rcc .songs .sg{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:11px 0;background:none;border:0;text-align:left;color:var(--ink)}
 .rcc .songs .sg i{flex:0 0 22px;font-style:normal;color:var(--soft);text-align:center}
-.rcc .songs .sg b{display:block;font-weight:600}
-.rcc .songs .sg small{display:block;color:var(--soft);font-size:12px}
+.rcc .songs .sg>span{flex:1;min-width:0;overflow:hidden}
+.rcc .songs .sg b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rcc .songs .sg small{display:block;color:var(--soft);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rcc .songs .mq em{display:inline-block;font-style:normal;white-space:nowrap}
+.rcc .songs .mq.run em{animation:rcc-mq var(--mt,6s) ease-in-out infinite alternate}
+@keyframes rcc-mq{0%,14%{transform:translateX(0)}86%,100%{transform:translateX(var(--mq,0px))}}
+@media (prefers-reduced-motion:reduce){.rcc .songs .mq em{display:inline}.rcc .songs .mq.run em{animation:none}}
 .rcc .songs li.cur .sg b{color:var(--berry)}
 .rcc .songs li.lock .sg{opacity:.55}
 .rcc .songs .del{background:none;border:0;color:var(--soft);font-size:20px;padding:10px 11px}
@@ -133,12 +139,12 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
       // ---------- 唱片 / 臂针：角度由代码记着，页面重绘也不会回到起点 ----------
       var ang = 0, spd = 0, armA = REST, armV = 0, raf = 0, lastT = 0, wob = 0;
       function discHtml() { return '<i class="disc" style="transform:rotate(' + ang.toFixed(1) + 'deg)"></i>'; }
-      function ttW() { return Math.max(200, Math.min(300, (ctx.view.clientWidth || 360) - 60)); }
+      function tsOf() { return Math.min(1, Math.max(0.6, ((ctx.view.clientWidth || 360) - 60) / 300)); }   // 唱机台缩放比例（按 300 宽画，窄屏整体缩小）
       // 臂针的目标角度：没在播放就回到休息位；播放时按歌曲进度，从唱片外圈慢慢走向内圈
       function armTarget() {
         if (!playing || !cur) return REST;
         var d = audio.duration, p = d > 0 && isFinite(d) ? Math.min(1, audio.currentTime / d) : 0;
-        var px = ttW() - 34, dx = px - 117, dy = 115 - 25, dist = Math.hypot(dx, dy), base = Math.atan2(dx, dy) * 180 / Math.PI, L = 120;
+        var px = 300 - 34, dx = px - 117, dy = 115 - 25, dist = Math.hypot(dx, dy), base = Math.atan2(dx, dy) * 180 / Math.PI, L = 120;
         function at(rho) { var c = (dist * dist + L * L - rho * rho) / (2 * dist * L); return base - Math.acos(Math.max(-1, Math.min(1, c))) * 180 / Math.PI; }
         return at(88) + (at(60) - at(88)) * p;
       }
@@ -150,6 +156,7 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
       }
       function tick(t) {
         raf = 0;
+        if (lastT && t - lastT < 30) { raf = requestAnimationFrame(tick); return; }   // 约 30 帧，省电
         if (!lastT) lastT = t;
         var dt = Math.min(0.05, Math.max(0.001, (t - lastT) / 1000)); lastT = t;
         spd += ((playing ? FULL : 0) - spd) * Math.min(1, dt * (playing ? 1.4 : 0.9));    // 慢慢加速 / 慢慢减速
@@ -162,6 +169,17 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
         if (playing || spd > 0 || Math.abs(tg - armA) > 0.03 || Math.abs(armV) > 0.05) raf = requestAnimationFrame(tick);
         else { lastT = 0; wob = 0; applyAnim(); }
       }
+      function fitMq() {
+        requestAnimationFrame(function () {
+          var bs = ctx.view.querySelectorAll(".songs li.pl .mq"), i;
+          for (i = 0; i < bs.length; i++) {
+            var b = bs[i], em = b.firstChild, over = em ? em.scrollWidth - b.clientWidth : 0;
+            if (over > 4) { b.classList.add("run"); b.style.setProperty("--mq", -(over + 12) + "px"); b.style.setProperty("--mt", Math.max(5, (over + 12) / 28 + 3).toFixed(1) + "s"); }
+          }
+        });
+      }
+      var mo = null;
+      try { mo = new MutationObserver(fitMq); mo.observe(ctx.view, { childList: true }); } catch (err) { /* 没有就不跑马灯，只省略 */ }
       function kick() { if (!raf) { lastT = 0; raf = requestAnimationFrame(tick); } }
       var wasPlaying = false;
       function onVis() {
@@ -185,7 +203,15 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
       function onRenIn(ev) { var t = ev.target; if (t && t.dataset && t.dataset.ren != null) renText = t.value; }
       function onRenKey(ev) { var t = ev.target; if (ev.key === "Enter" && t && t.dataset && t.dataset.ren != null) { ev.preventDefault(); saveRename(); } }
       ctx.root.addEventListener("input", onRenIn); ctx.root.addEventListener("keydown", onRenKey);
-      window.addEventListener("resize", kick);
+      function clampFl() {
+        if (!fl.dataset.placed || fl.style.display === "none") return;
+        var rw = ctx.root.clientWidth, rh = ctx.root.clientHeight;
+        fl.style.left = Math.max(0, Math.min(rw - fl.offsetWidth, fl.offsetLeft)) + "px";
+        fl.style.top = Math.max(0, Math.min(rh - fl.offsetHeight, fl.offsetTop)) + "px";
+      }
+      function onRz() { clampFl(); if (onRecordPage() && !drag) ctx.render(); kick(); }   // 转屏 / 键盘弹出：卡片拉回屏幕内，唱机台重新缩放
+      window.addEventListener("resize", onRz);
+      if (window.visualViewport) visualViewport.addEventListener("resize", onRz);
       var fl = document.createElement("div");
       fl.className = "rfl"; fl.style.display = "none"; ctx.root.appendChild(fl);
 
@@ -203,8 +229,8 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
           '<button class="gbtn" data-act="record.pp" aria-label="播放或暂停">' + (playing ? IC.pause : IC.play) + '</button><button class="gbtn" data-act="record.next" aria-label="下一首">' + IC.next + '</button>' +
           '<button class="gbtn" data-act="record.close" aria-label="关闭">' + IC.close + '</button>';
         fl.style.display = "flex";
-        if (!fl.dataset.placed) { fl.style.left = Math.max(0, ctx.root.clientWidth - fl.offsetWidth - 10) + "px"; fl.style.top = "88px"; fl.dataset.placed = "1"; }
-        else { var rw = ctx.root.clientWidth; if (fl.offsetLeft + fl.offsetWidth > rw) fl.style.left = Math.max(0, rw - fl.offsetWidth - 6) + "px"; }
+        if (!fl.dataset.placed) { fl.style.left = Math.max(0, ctx.root.clientWidth - fl.offsetWidth - 10) + "px"; fl.style.top = "calc(76px + max(env(safe-area-inset-top, 0px), 12px))"; fl.dataset.placed = "1"; }
+        else clampFl();
       }
       function refresh() { paintFloat(); if (onRecordPage()) ctx.render(); }
 
@@ -323,7 +349,7 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
         },
         destroy: function () {
           document.removeEventListener("visibilitychange", onVis);
-          cancelAnimationFrame(raf); window.removeEventListener("resize", kick);
+          cancelAnimationFrame(raf); window.removeEventListener("resize", onRz); if (window.visualViewport) visualViewport.removeEventListener("resize", onRz); if (mo) mo.disconnect();
           ctx.root.removeEventListener("input", onRenIn); ctx.root.removeEventListener("keydown", onRenKey);
           audio.pause(); audio.removeAttribute("src");
           Object.keys(xurls).forEach(function (k) { URL.revokeObjectURL(xurls[k]); });
@@ -333,7 +359,8 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
         view: function () {
           if (!preparing && SONGS.some(function (s) { return unlocked(s) && !xurls[s.id]; })) prepare();
           var L = list(shelf), s = cur && cur.shelf === shelf ? L[cur.idx] : null, on = playing && s;
-          var h = '<div class="tt tex-wood' + (on ? " on" : "") + '"><div class="plate">' + discHtml() + '</div><div class="arm" style="transform:rotate(' + armA.toFixed(2) + 'deg)"></div></div>' +
+          var ts = tsOf();
+          var h = '<div class="ttw" style="height:' + Math.round(230 * ts) + 'px"><div class="tt tex-wood' + (on ? " on" : "") + '" style="transform:scale(' + ts.toFixed(3) + ')"><div class="plate">' + discHtml() + '</div><div class="arm" style="transform:rotate(' + armA.toFixed(2) + 'deg)"></div></div></div>' +
             '<div class="np">' + (s ? e(sh2t(s)) + '<small>' + e(s.e || "") + '</small>' : '<small>选一张唱片开始播放</small>') + '</div>' +
             '<div class="ctl"><button class="gbtn" data-act="record.prev"' + (cur ? "" : " disabled") + '>' + IC.prev + '</button>' +
             '<button class="gbtn big" data-act="record.pp"' + (cur ? "" : " disabled") + '>' + (playing ? IC.pause : IC.play) + '</button>' +
@@ -348,8 +375,8 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
           h += '<ul class="songs">' + L.map(function (x, i) {
             var lock = !unlocked(x), isCur = s === x, ready = urlOf(shelf, i);
             if (shelf === "mine" && renaming === i) return '<li class="ren"><input class="in" data-ren="1" maxlength="40" value="' + e(renText) + '"><button class="btn sm" data-act="record.rensave">保存</button><button class="link" data-act="record.rencancel">取消</button></li>';
-            return '<li class="' + (isCur ? "cur " : "") + (lock ? "lock" : "") + '"><button class="sg" data-act="record.play" data-i="' + i + '"' + (lock ? " disabled" : "") + '><i>' + (isCur && playing ? "♪" : i + 1) + '</i><span><b>' + e(sh2t(x)) +
-              '</b><small>' + (lock ? "12 月 24 日解锁" : e(x.e || (Math.round(x.size / 1048576 * 10) / 10) + "MB") + (ready ? "" : "（准备中）")) + '</small></span></button>' +
+            return '<li class="' + (isCur ? "cur " : "") + (isCur && playing ? "pl " : "") + (lock ? "lock" : "") + '"><button class="sg" data-act="record.play" data-i="' + i + '"' + (lock ? " disabled" : "") + '><i>' + (isCur && playing ? "♪" : i + 1) + '</i><span>' + (isCur && playing ? '<b class="mq"><em>' + e(sh2t(x)) + '</em></b>' : '<b>' + e(sh2t(x)) + '</b>') +
+              '<small>' + (lock ? "12 月 24 日解锁" : e(x.e || (Math.round(x.size / 1048576 * 10) / 10) + "MB") + (ready ? "" : "（准备中）")) + '</small></span></button>' +
               (shelf === "mine" ? '<button class="del" data-act="record.ren" data-i="' + i + '" aria-label="改名">✎</button><button class="del" data-act="record.del" data-i="' + i + '" aria-label="删除">×</button>' : "") + '</li>';
           }).join("") + (L.length ? "" : '<li><small class="hint">架子上还没有唱片，点上面的「添加唱片」放一张吧。</small></li>') + '</ul>';
           return ctx.page("Record Player", "唱 片 机", h);
