@@ -1,4 +1,4 @@
-/* 圣诞小屋 v1.8.0 — 核心文件（入口）
+/* 圣诞小屋 v1.9.0 — 核心文件（入口）
  * 负责：加载模块、共享状态、AI 调用（流式可选）、后台任务、路由、事件分发
  * 界面和功能都在 modules/ 里，哪里不对改哪个文件：
  *   （所有文件都直接放在仓库最外层，不用文件夹）
@@ -6,13 +6,13 @@
  */
 (function () {
   "use strict";
-  var VER = "1.8.0";
+  var VER = "1.9.0";
   var BASE = "https://raw.githubusercontent.com/goldfuchs0921-ui/christmas-cabin/main/";
   try {
     var cs = document.currentScript;
     if (cs && cs.src && /christmas-cabin\.js/.test(cs.src)) BASE = cs.src.replace(/[^\/]*$/, "");
   } catch (e) { /* 用默认地址 */ }
-  var MODULES = ["theme", "home", "settings", "worldbook", "cert", "gift", "mail", "santa", "record", "snow-art", "snow", "batch"];
+  var MODULES = ["theme", "home", "settings", "worldbook", "cert", "gift", "mail", "santa", "record", "snow-art", "snow", "batch", "memory"];
 
   var R = window.RCC = window.RCC || {};
   R.mods = R.mods || []; R.status = R.status || {}; R.base = BASE; R.ver = VER;
