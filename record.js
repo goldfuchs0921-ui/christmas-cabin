@@ -109,10 +109,13 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
 .rcc .songs .sg>span{flex:1;min-width:0;overflow:hidden}
 .rcc .songs .sg b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rcc .songs .sg small{display:block;color:var(--soft);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rcc .songs .mq em{display:inline-block;font-style:normal;white-space:nowrap}
-.rcc .songs .mq.run em{animation:rcc-mq var(--mt,6s) ease-in-out infinite alternate}
-@keyframes rcc-mq{0%,14%{transform:translateX(0)}86%,100%{transform:translateX(var(--mq,0px))}}
-@media (prefers-reduced-motion:reduce){.rcc .songs .mq em{display:inline}.rcc .songs .mq.run em{animation:none}}
+.rcc b.mq{text-overflow:clip}
+.rcc .mq .tr{display:inline-block;white-space:nowrap}
+.rcc .mq .tr em{display:inline-block;font-style:normal}
+.rcc .mq .tr em+em{margin-left:32px}
+.rcc .mq .tr.run{animation:rcc-mq var(--mt,8s) linear 1s infinite}
+@keyframes rcc-mq{from{transform:translateX(0)}to{transform:translateX(var(--mq,0px))}}
+@media (prefers-reduced-motion:reduce){.rcc b.mq{text-overflow:ellipsis}.rcc .mq .tr,.rcc .mq .tr em{display:inline}}
 .rcc .songs li.cur .sg b{color:var(--berry)}
 .rcc .songs li.lock .sg{opacity:.55}
 .rcc .songs .del{background:none;border:0;color:var(--soft);font-size:20px;padding:10px 11px}
@@ -169,12 +172,21 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
         if (playing || spd > 0 || Math.abs(tg - armA) > 0.03 || Math.abs(armV) > 0.05) raf = requestAnimationFrame(tick);
         else { lastT = 0; wob = 0; applyAnim(); }
       }
+      // 渲染后量一下：放不下才跑；把歌名复制一份接在后面，从右往左单向循环（约 45px/秒）
       function fitMq() {
+        if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
         requestAnimationFrame(function () {
-          var bs = ctx.view.querySelectorAll(".songs li.pl .mq"), i;
+          var bs = ctx.root.querySelectorAll(".songs li.pl .mq, .rfl:not(.mini) .rfl-t .mq"), i;
           for (i = 0; i < bs.length; i++) {
-            var b = bs[i], em = b.firstChild, over = em ? em.scrollWidth - b.clientWidth : 0;
-            if (over > 4) { b.classList.add("run"); b.style.setProperty("--mq", -(over + 12) + "px"); b.style.setProperty("--mt", Math.max(5, (over + 12) / 28 + 3).toFixed(1) + "s"); }
+            var b = bs[i], tr = b.firstChild, em = tr && tr.firstChild;
+            if (!em || tr.classList.contains("run")) continue;
+            var w = em.offsetWidth;
+            if (w - b.clientWidth > 2) {
+              tr.appendChild(em.cloneNode(true));
+              tr.style.setProperty("--mq", -(w + 32) + "px");
+              tr.style.setProperty("--mt", ((w + 32) / 45).toFixed(2) + "s");
+              tr.classList.add("run");
+            }
           }
         });
       }
@@ -209,7 +221,8 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
         fl.style.left = Math.max(0, Math.min(rw - fl.offsetWidth, fl.offsetLeft)) + "px";
         fl.style.top = Math.max(0, Math.min(rh - fl.offsetHeight, fl.offsetTop)) + "px";
       }
-      function onRz() { clampFl(); if (onRecordPage() && !drag) ctx.render(); kick(); }   // 转屏 / 键盘弹出：卡片拉回屏幕内，唱机台重新缩放
+      var lastTs = 0;
+      function onRz() { clampFl(); if (onRecordPage() && renaming < 0 && Math.abs(tsOf() - lastTs) > 0.01) ctx.render(); kick(); }   // 转屏 / 键盘弹出：卡片拉回屏幕内，唱机台重新缩放
       window.addEventListener("resize", onRz);
       if (window.visualViewport) visualViewport.addEventListener("resize", onRz);
       var fl = document.createElement("div");
@@ -225,12 +238,13 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
         if (!cur) { fl.style.display = "none"; return; }
         var s = list(cur.shelf)[cur.idx];
         fl.className = "rfl" + (playing ? " playing" : "") + (mini ? " mini" : "");
-        fl.innerHTML = '<button class="rfl-v" aria-label="收起或展开">' + discHtml() + '</button><div class="rfl-t"><b>' + e(sh2t(s)) + '</b><small>' + (cur.shelf === "xmas" ? "圣诞经典" : "我的唱片") + '</small></div>' +
+        fl.innerHTML = '<button class="rfl-v" aria-label="收起或展开">' + discHtml() + '</button><div class="rfl-t">' + (playing ? '<b class="mq"><span class="tr"><em>' + e(sh2t(s)) + '</em></span></b>' : '<b>' + e(sh2t(s)) + '</b>') + '<small>' + (cur.shelf === "xmas" ? "圣诞经典" : "我的唱片") + '</small></div>' +
           '<button class="gbtn" data-act="record.pp" aria-label="播放或暂停">' + (playing ? IC.pause : IC.play) + '</button><button class="gbtn" data-act="record.next" aria-label="下一首">' + IC.next + '</button>' +
           '<button class="gbtn" data-act="record.close" aria-label="关闭">' + IC.close + '</button>';
         fl.style.display = "flex";
         if (!fl.dataset.placed) { fl.style.left = Math.max(0, ctx.root.clientWidth - fl.offsetWidth - 10) + "px"; fl.style.top = "calc(76px + max(env(safe-area-inset-top, 0px), 12px))"; fl.dataset.placed = "1"; }
         else clampFl();
+        fitMq();
       }
       function refresh() { paintFloat(); if (onRecordPage()) ctx.render(); }
 
@@ -359,7 +373,7 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
         view: function () {
           if (!preparing && SONGS.some(function (s) { return unlocked(s) && !xurls[s.id]; })) prepare();
           var L = list(shelf), s = cur && cur.shelf === shelf ? L[cur.idx] : null, on = playing && s;
-          var ts = tsOf();
+          var ts = tsOf(); lastTs = ts;
           var h = '<div class="ttw" style="height:' + Math.round(230 * ts) + 'px"><div class="tt tex-wood' + (on ? " on" : "") + '" style="transform:scale(' + ts.toFixed(3) + ')"><div class="plate">' + discHtml() + '</div><div class="arm" style="transform:rotate(' + armA.toFixed(2) + 'deg)"></div></div></div>' +
             '<div class="np">' + (s ? e(sh2t(s)) + '<small>' + e(s.e || "") + '</small>' : '<small>选一张唱片开始播放</small>') + '</div>' +
             '<div class="ctl"><button class="gbtn" data-act="record.prev"' + (cur ? "" : " disabled") + '>' + IC.prev + '</button>' +
@@ -375,7 +389,7 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
           h += '<ul class="songs">' + L.map(function (x, i) {
             var lock = !unlocked(x), isCur = s === x, ready = urlOf(shelf, i);
             if (shelf === "mine" && renaming === i) return '<li class="ren"><input class="in" data-ren="1" maxlength="40" value="' + e(renText) + '"><button class="btn sm" data-act="record.rensave">保存</button><button class="link" data-act="record.rencancel">取消</button></li>';
-            return '<li class="' + (isCur ? "cur " : "") + (isCur && playing ? "pl " : "") + (lock ? "lock" : "") + '"><button class="sg" data-act="record.play" data-i="' + i + '"' + (lock ? " disabled" : "") + '><i>' + (isCur && playing ? "♪" : i + 1) + '</i><span>' + (isCur && playing ? '<b class="mq"><em>' + e(sh2t(x)) + '</em></b>' : '<b>' + e(sh2t(x)) + '</b>') +
+            return '<li class="' + (isCur ? "cur " : "") + (isCur && playing ? "pl " : "") + (lock ? "lock" : "") + '"><button class="sg" data-act="record.play" data-i="' + i + '"' + (lock ? " disabled" : "") + '><i>' + (isCur && playing ? "♪" : i + 1) + '</i><span>' + (isCur && playing ? '<b class="mq"><span class="tr"><em>' + e(sh2t(x)) + '</em></span></b>' : '<b>' + e(sh2t(x)) + '</b>') +
               '<small>' + (lock ? "12 月 24 日解锁" : e(x.e || (Math.round(x.size / 1048576 * 10) / 10) + "MB") + (ready ? "" : "（准备中）")) + '</small></span></button>' +
               (shelf === "mine" ? '<button class="del" data-act="record.ren" data-i="' + i + '" aria-label="改名">✎</button><button class="del" data-act="record.del" data-i="' + i + '" aria-label="删除">×</button>' : "") + '</li>';
           }).join("") + (L.length ? "" : '<li><small class="hint">架子上还没有唱片，点上面的「添加唱片」放一张吧。</small></li>') + '</ul>';
@@ -386,7 +400,9 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
           if (name === "ren") {
             if (!mine[i]) return;
             renaming = i; renText = mine[i].name; ctx.render();
-            return setTimeout(function () { var inp = ctx.view.querySelector("[data-ren]"); if (inp) { inp.focus(); inp.select(); } }, 30);
+            var inp = ctx.view.querySelector("[data-ren]");
+            if (inp) { inp.focus(); try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (err) { /* 忽略 */ } }
+            return;
           }
           if (name === "rensave") return saveRename();
           if (name === "rencancel") { renaming = -1; return ctx.render(); }
