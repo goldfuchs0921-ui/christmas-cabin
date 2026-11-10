@@ -7,6 +7,7 @@
   "use strict";
   var R = window.RCC;
   var MAX_SONGS = 10, MAX_MB = 15;
+  var REST = -8, FULL = 90;   // 臂针休息角度；唱片满速 90°/秒（4 秒一圈）
 
   function parse(s) { return s.trim().split(/\s+/).map(function (t) { var p = t.split(":"); return [p[0] === "R" ? null : p[0], parseFloat(p[1])]; }); }
   var SEMI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
@@ -87,16 +88,13 @@
   };
 
   var CSS = `
-.rcc .disc{display:block;width:100%;height:100%;border-radius:50%;animation:rcc-spin 4s linear infinite;animation-play-state:paused;box-shadow:0 3px 8px rgba(0,0,0,.6),inset 0 0 0 2px #000;
+.rcc .disc{display:block;width:100%;height:100%;border-radius:50%;will-change:transform;box-shadow:0 3px 8px rgba(0,0,0,.6),inset 0 0 0 2px #000;
 background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%,transparent 30% 68%,rgba(255,255,255,.16) 74%,transparent 80%),radial-gradient(circle,#f3e6c8 0 3%,#c98d26 3% 13%,#a3293a 13% 30%,#111 30% 33%,transparent 33%),repeating-radial-gradient(circle,#151515 0 2px,#262626 2px 3px)}
-@keyframes rcc-spin{to{transform:rotate(360deg)}}
-.rcc .on .disc,.rcc .playing .disc{animation-play-state:running}
 .rcc .tt{position:relative;width:min(100%,300px);height:230px;margin:0 auto 12px;border-radius:12px;box-shadow:inset 0 0 18px rgba(0,0,0,.65),0 0 0 3px #2c180c,0 8px 14px rgba(0,0,0,.5)}
 .rcc .tt .plate{position:absolute;left:24px;top:22px;width:186px;height:186px}
-.rcc .tt .arm{position:absolute;right:30px;top:18px;width:8px;height:122px;border-radius:4px;background:linear-gradient(90deg,#f6dc8f,#c9962f 50%,#8a5a1c);box-shadow:0 2px 4px rgba(0,0,0,.6);transform-origin:50% 7px;transform:rotate(-8deg);transition:transform .8s}
+.rcc .tt .arm{position:absolute;right:30px;top:18px;width:8px;height:122px;border-radius:4px;background:linear-gradient(90deg,#f6dc8f,#c9962f 50%,#8a5a1c);box-shadow:0 2px 4px rgba(0,0,0,.6);transform-origin:50% 7px;transform:rotate(-8deg);will-change:transform}
 .rcc .tt .arm::after{content:"";position:absolute;left:-4px;bottom:-12px;width:16px;height:20px;border-radius:3px 3px 7px 7px;background:linear-gradient(#e3b341,#8a5a1c);box-shadow:0 2px 3px rgba(0,0,0,.6)}
 .rcc .tt .arm::before{content:"";position:absolute;top:-7px;left:-5px;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff1b8,#a8741c)}
-.rcc .tt.on .arm{transform:rotate(62deg)}
 .rcc .np{text-align:center;font-size:18px;min-height:46px}
 .rcc .np small{display:block;color:var(--soft);font-size:12px;font-style:italic}
 .rcc .ctl{display:flex;justify-content:center;align-items:center;gap:16px;margin:8px 0 14px}
@@ -111,7 +109,9 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
 .rcc .songs .sg small{display:block;color:var(--soft);font-size:12px}
 .rcc .songs li.cur .sg b{color:var(--berry)}
 .rcc .songs li.lock .sg{opacity:.55}
-.rcc .songs .del{background:none;border:0;color:var(--soft);font-size:20px;padding:6px 8px}
+.rcc .songs .del{background:none;border:0;color:var(--soft);font-size:20px;padding:10px 11px}
+.rcc .songs li.ren{gap:8px;padding:8px 0}
+.rcc .songs li.ren .in{flex:1}
 .rcc .rfl{position:absolute;z-index:6;display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:32px;color:var(--ink);touch-action:none;max-width:calc(100% - 12px);background-color:var(--paper);background-image:var(--tex-paper,none);background-size:256px 256px;box-shadow:inset 0 0 14px rgba(120,76,24,.5),0 0 0 2px #5a3a20,0 0 0 3px rgba(255,214,150,.3),0 6px 12px rgba(0,0,0,.55)}
 .rcc .rfl-v{flex:0 0 auto;width:40px;height:40px;border:0;padding:0;background:none}
 .rcc .rfl-t{min-width:0;max-width:92px;line-height:1.25}
@@ -128,8 +128,41 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
     create: function (ctx) {
       var roche = ctx.roche, st = ctx.st, e = ctx.esc;
       var shelf = "xmas", cur = null, playing = false, mini = false, audio = new Audio();
-      var loopOne = false, xurls = {}, preparing = false, mine = [], murls = {}, loadingMine = false, msg = "", drag = null;
+      var loopOne = false, xurls = {}, preparing = false, mine = [], murls = {}, loadingMine = false, msg = "", drag = null, renaming = -1, renText = "";
       R.duck = function (v) { try { audio.volume = v; } catch (err) {} };
+      // ---------- 唱片 / 臂针：角度由代码记着，页面重绘也不会回到起点 ----------
+      var ang = 0, spd = 0, armA = REST, armV = 0, raf = 0, lastT = 0, wob = 0;
+      function discHtml() { return '<i class="disc" style="transform:rotate(' + ang.toFixed(1) + 'deg)"></i>'; }
+      function ttW() { return Math.max(200, Math.min(300, (ctx.view.clientWidth || 360) - 60)); }
+      // 臂针的目标角度：没在播放就回到休息位；播放时按歌曲进度，从唱片外圈慢慢走向内圈
+      function armTarget() {
+        if (!playing || !cur) return REST;
+        var d = audio.duration, p = d > 0 && isFinite(d) ? Math.min(1, audio.currentTime / d) : 0;
+        var px = ttW() - 34, dx = px - 117, dy = 115 - 25, dist = Math.hypot(dx, dy), base = Math.atan2(dx, dy) * 180 / Math.PI, L = 120;
+        function at(rho) { var c = (dist * dist + L * L - rho * rho) / (2 * dist * L); return base - Math.acos(Math.max(-1, Math.min(1, c))) * 180 / Math.PI; }
+        return at(88) + (at(60) - at(88)) * p;
+      }
+      function applyAnim() {
+        var ds = ctx.root.querySelectorAll(".disc"), i;
+        for (i = 0; i < ds.length; i++) ds[i].style.transform = "rotate(" + ang.toFixed(1) + "deg)";
+        var ar = ctx.view.querySelector(".arm");
+        if (ar) ar.style.transform = "rotate(" + (armA + wob).toFixed(2) + "deg)";
+      }
+      function tick(t) {
+        raf = 0;
+        if (!lastT) lastT = t;
+        var dt = Math.min(0.05, Math.max(0.001, (t - lastT) / 1000)); lastT = t;
+        spd += ((playing ? FULL : 0) - spd) * Math.min(1, dt * (playing ? 1.4 : 0.9));    // 慢慢加速 / 慢慢减速
+        if (!playing && spd < 0.4) spd = 0;
+        ang = (ang + spd * dt) % 360;
+        var tg = armTarget(), acc = 14 * (tg - armA) - 5.2 * armV;                        // 弹簧：落下时带一点点回弹
+        armV += acc * dt; armA += armV * dt;
+        wob = playing && Math.abs(tg - armA) < 1.2 ? Math.sin(t / 95) * 0.16 + Math.sin(t / 37) * 0.07 : 0;   // 针落在唱片上的轻微抖动
+        applyAnim();
+        if (playing || spd > 0 || Math.abs(tg - armA) > 0.03 || Math.abs(armV) > 0.05) raf = requestAnimationFrame(tick);
+        else { lastT = 0; wob = 0; applyAnim(); }
+      }
+      function kick() { if (!raf) { lastT = 0; raf = requestAnimationFrame(tick); } }
       var wasPlaying = false;
       function onVis() {
         if (ctx.cfg.bgPause === false) return;
@@ -141,6 +174,18 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
         }
       }
       document.addEventListener("visibilitychange", onVis);
+      async function saveRename() {
+        var s0 = mine[renaming], n = String(renText || "").trim().slice(0, 40);
+        if (!s0) { renaming = -1; return ctx.render(); }
+        if (!n) return roche.ui.toast("名字不能是空的");
+        s0.name = n; renaming = -1;
+        await roche.storage.set("recIndex", mine);
+        roche.ui.toast("已改名"); refresh();
+      }
+      function onRenIn(ev) { var t = ev.target; if (t && t.dataset && t.dataset.ren != null) renText = t.value; }
+      function onRenKey(ev) { var t = ev.target; if (ev.key === "Enter" && t && t.dataset && t.dataset.ren != null) { ev.preventDefault(); saveRename(); } }
+      ctx.root.addEventListener("input", onRenIn); ctx.root.addEventListener("keydown", onRenKey);
+      window.addEventListener("resize", kick);
       var fl = document.createElement("div");
       fl.className = "rfl"; fl.style.display = "none"; ctx.root.appendChild(fl);
 
@@ -154,7 +199,7 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
         if (!cur) { fl.style.display = "none"; return; }
         var s = list(cur.shelf)[cur.idx];
         fl.className = "rfl" + (playing ? " playing" : "") + (mini ? " mini" : "");
-        fl.innerHTML = '<button class="rfl-v" aria-label="收起或展开"><i class="disc"></i></button><div class="rfl-t"><b>' + e(sh2t(s)) + '</b><small>' + (cur.shelf === "xmas" ? "圣诞经典" : "我的唱片") + '</small></div>' +
+        fl.innerHTML = '<button class="rfl-v" aria-label="收起或展开">' + discHtml() + '</button><div class="rfl-t"><b>' + e(sh2t(s)) + '</b><small>' + (cur.shelf === "xmas" ? "圣诞经典" : "我的唱片") + '</small></div>' +
           '<button class="gbtn" data-act="record.pp" aria-label="播放或暂停">' + (playing ? IC.pause : IC.play) + '</button><button class="gbtn" data-act="record.next" aria-label="下一首">' + IC.next + '</button>' +
           '<button class="gbtn" data-act="record.close" aria-label="关闭">' + IC.close + '</button>';
         fl.style.display = "flex";
@@ -191,10 +236,10 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
       }
       function stop() {
         audio.pause(); audio.removeAttribute("src"); try { audio.load(); } catch (err) { /* 忽略 */ }
-        cur = null; playing = false; refresh();
+        cur = null; playing = false; refresh(); kick();
       }
-      audio.addEventListener("play", function () { playing = true; refresh(); });
-      audio.addEventListener("pause", function () { if (!audio.ended) { playing = false; refresh(); } });
+      audio.addEventListener("play", function () { playing = true; refresh(); kick(); });
+      audio.addEventListener("pause", function () { if (!audio.ended) { playing = false; refresh(); kick(); } });
       audio.addEventListener("ended", function () { step(1); });
       audio.addEventListener("error", function () { if (audio.getAttribute("src")) roche.ui.toast("这个音频播放不了，换一首试试"); });
 
@@ -278,6 +323,8 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
         },
         destroy: function () {
           document.removeEventListener("visibilitychange", onVis);
+          cancelAnimationFrame(raf); window.removeEventListener("resize", kick);
+          ctx.root.removeEventListener("input", onRenIn); ctx.root.removeEventListener("keydown", onRenKey);
           audio.pause(); audio.removeAttribute("src");
           Object.keys(xurls).forEach(function (k) { URL.revokeObjectURL(xurls[k]); });
           Object.keys(murls).forEach(function (k) { URL.revokeObjectURL(murls[k]); });
@@ -286,7 +333,7 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
         view: function () {
           if (!preparing && SONGS.some(function (s) { return unlocked(s) && !xurls[s.id]; })) prepare();
           var L = list(shelf), s = cur && cur.shelf === shelf ? L[cur.idx] : null, on = playing && s;
-          var h = '<div class="tt tex-wood' + (on ? " on" : "") + '"><div class="plate"><i class="disc"></i></div><div class="arm"></div></div>' +
+          var h = '<div class="tt tex-wood' + (on ? " on" : "") + '"><div class="plate">' + discHtml() + '</div><div class="arm" style="transform:rotate(' + armA.toFixed(2) + 'deg)"></div></div>' +
             '<div class="np">' + (s ? e(sh2t(s)) + '<small>' + e(s.e || "") + '</small>' : '<small>选一张唱片开始播放</small>') + '</div>' +
             '<div class="ctl"><button class="gbtn" data-act="record.prev"' + (cur ? "" : " disabled") + '>' + IC.prev + '</button>' +
             '<button class="gbtn big" data-act="record.pp"' + (cur ? "" : " disabled") + '>' + (playing ? IC.pause : IC.play) + '</button>' +
@@ -300,18 +347,26 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
           }
           h += '<ul class="songs">' + L.map(function (x, i) {
             var lock = !unlocked(x), isCur = s === x, ready = urlOf(shelf, i);
+            if (shelf === "mine" && renaming === i) return '<li class="ren"><input class="in" data-ren="1" maxlength="40" value="' + e(renText) + '"><button class="btn sm" data-act="record.rensave">保存</button><button class="link" data-act="record.rencancel">取消</button></li>';
             return '<li class="' + (isCur ? "cur " : "") + (lock ? "lock" : "") + '"><button class="sg" data-act="record.play" data-i="' + i + '"' + (lock ? " disabled" : "") + '><i>' + (isCur && playing ? "♪" : i + 1) + '</i><span><b>' + e(sh2t(x)) +
               '</b><small>' + (lock ? "12 月 24 日解锁" : e(x.e || (Math.round(x.size / 1048576 * 10) / 10) + "MB") + (ready ? "" : "（准备中）")) + '</small></span></button>' +
-              (shelf === "mine" ? '<button class="del" data-act="record.del" data-i="' + i + '" aria-label="删除">×</button>' : "") + '</li>';
+              (shelf === "mine" ? '<button class="del" data-act="record.ren" data-i="' + i + '" aria-label="改名">✎</button><button class="del" data-act="record.del" data-i="' + i + '" aria-label="删除">×</button>' : "") + '</li>';
           }).join("") + (L.length ? "" : '<li><small class="hint">架子上还没有唱片，点上面的「添加唱片」放一张吧。</small></li>') + '</ul>';
           return ctx.page("Record Player", "唱 片 机", h);
         },
         act: async function (name, el) {
           var i = +el.dataset.i;
+          if (name === "ren") {
+            if (!mine[i]) return;
+            renaming = i; renText = mine[i].name; ctx.render();
+            return setTimeout(function () { var inp = ctx.view.querySelector("[data-ren]"); if (inp) { inp.focus(); inp.select(); } }, 30);
+          }
+          if (name === "rensave") return saveRename();
+          if (name === "rencancel") { renaming = -1; return ctx.render(); }
           if (name === "tab") {
             var t = el.dataset.t;
             if (cur && cur.shelf !== t) stop();
-            shelf = t; if (t === "mine") loadMine();
+            shelf = t; renaming = -1; if (t === "mine") loadMine();
             return ctx.render();
           }
           if (name === "play") return play(shelf, i);
@@ -335,7 +390,7 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
             if (cur && cur.shelf === "mine" && cur.idx === i) stop();
             else if (cur && cur.shelf === "mine" && cur.idx > i) cur.idx--;
             if (murls[s.id]) { URL.revokeObjectURL(murls[s.id]); delete murls[s.id]; }
-            mine.splice(i, 1);
+            mine.splice(i, 1); renaming = -1;
             await roche.storage.delete("rec:" + s.id); await roche.storage.set("recIndex", mine);
             return refresh();
           }
