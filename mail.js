@@ -33,10 +33,10 @@
 .rcc .lt small{display:block;color:var(--soft)}
 .rcc .mm-v{font-size:12px;color:var(--soft);white-space:nowrap}
 /* ---------- 木桌 ---------- */
-.rcc .desk{position:relative;min-height:540px;border-radius:14px;overflow:hidden;background-color:#4a2c18;background-image:radial-gradient(ellipse 85% 55% at 16% 0%,rgba(255,214,150,.42),rgba(255,214,150,0) 72%),var(--tex-wood,none);background-size:auto,256px 256px;box-shadow:inset 0 0 44px rgba(0,0,0,.7),inset 0 0 0 2px rgba(255,214,150,.12),0 0 0 3px #2c180c,0 10px 18px rgba(0,0,0,.55)}
+.rcc .desk{position:relative;min-height:580px;border-radius:14px;overflow:hidden;background-color:#4a2c18;background-image:radial-gradient(ellipse 85% 55% at 16% 0%,rgba(255,214,150,.42),rgba(255,214,150,0) 72%),var(--tex-wood,none);background-size:auto,256px 256px;box-shadow:inset 0 0 44px rgba(0,0,0,.7),inset 0 0 0 2px rgba(255,214,150,.12),0 0 0 3px #2c180c,0 10px 18px rgba(0,0,0,.55)}
 .rcc .desk::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 42%,transparent 48%,rgba(0,0,0,.5) 100%)}
-.rcc .desk-cap{position:absolute;left:0;right:0;top:300px;text-align:center;color:#f3e6c8;font-size:13px;letter-spacing:.08em;text-shadow:0 1px 3px rgba(0,0,0,.8)}
-.rcc .env{position:absolute;left:50%;top:104px;width:260px;height:170px;margin-left:-130px;perspective:800px;transform:rotate(-2deg);filter:drop-shadow(0 12px 10px rgba(0,0,0,.55));cursor:pointer}
+.rcc .desk-cap{position:absolute;left:0;right:0;top:336px;text-align:center;color:#f3e6c8;font-size:13px;letter-spacing:.08em;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.rcc .env{position:absolute;left:50%;top:150px;width:260px;height:170px;margin-left:-130px;perspective:800px;transform:rotate(-2deg);filter:drop-shadow(0 12px 10px rgba(0,0,0,.55));cursor:pointer}
 .rcc .env.opened,.rcc .env.opening,.rcc .env.far{cursor:default}
 .rcc .env.far{opacity:.62;filter:drop-shadow(0 8px 8px rgba(0,0,0,.5)) saturate(.7)}
 .rcc .env.wait{animation:rcc-mwig 1.1s ease-in-out infinite}
@@ -51,16 +51,25 @@
 .rcc .env-flap{position:absolute;left:0;right:0;top:0;height:66%;z-index:4;transform-origin:50% 0;transform-style:preserve-3d}
 .rcc .env-flap i{position:absolute;inset:0;clip-path:polygon(0 0,100% 0,50% 100%);-webkit-backface-visibility:hidden;backface-visibility:hidden;background-color:#e6d3a2;background-image:linear-gradient(rgba(255,255,255,.22),rgba(0,0,0,.1)),var(--tex-paper,none);background-size:auto,256px 256px}
 .rcc .env-flap i+i{transform:rotateX(180deg);background-color:#c4a566;filter:brightness(.92)}
-.rcc .env.opening .env-flap{animation:rcc-mflap .8s ease-in-out forwards}
+.rcc .env.opening .env-flap{animation:rcc-mflap .75s cubic-bezier(.45,.05,.3,1) .22s both}
 .rcc .env.opened .env-flap{transform:rotateX(180deg);z-index:0}
 @keyframes rcc-mflap{0%{transform:rotateX(0);z-index:4}49%{z-index:4}50%{z-index:0}100%{transform:rotateX(180deg);z-index:0}}
-.rcc .env.opening .env-letter{animation:rcc-mslide .9s .55s cubic-bezier(.3,.9,.3,1) forwards}
+.rcc .env.opening .env-letter{animation:rcc-mslide 1.25s .8s both}
 .rcc .env.opened .env-letter{transform:translateY(-62%);cursor:pointer}
-@keyframes rcc-mslide{to{transform:translateY(-62%)}}
-.rcc .env-seal{position:absolute;left:50%;top:57%;width:40px;height:40px;margin:-20px 0 0 -20px;z-index:5;border-radius:50%;display:grid;place-items:center;color:#f8dede;font-size:16px;background:radial-gradient(circle at 35% 30%,#dc5866,#a3293a 55%,#6e1522);box-shadow:inset 0 2px 3px rgba(255,255,255,.35),inset 0 -3px 5px rgba(0,0,0,.4),0 2px 4px rgba(0,0,0,.5)}
-.rcc .env.opening .env-seal{animation:rcc-mseal .35s ease-out forwards}
+@keyframes rcc-mslide{0%{transform:translateY(0) rotate(0);z-index:2;animation-timing-function:cubic-bezier(.25,.9,.3,1)}52%{transform:translateY(-62%) rotate(-1.5deg);z-index:2;animation-timing-function:cubic-bezier(.4,0,.2,1)}53%{z-index:6}100%{transform:translateY(-96%) rotate(0) scale(1.12);z-index:6}}
+.rcc .desk.rd .env-letter{visibility:hidden}
+.rcc .env-seal{position:absolute;left:50%;top:57%;width:40px;height:40px;margin:-20px 0 0 -20px;z-index:5;display:flex;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}
+.rcc .env-seal i{flex:1;background:radial-gradient(circle 34px at 24px 13px,#e0606e,#a3293a 55%,#6e1522);background-size:200% 100%}
+.rcc .env-seal i:first-child{border-radius:20px 0 0 20px;background-position:0 0}
+.rcc .env-seal i:last-child{border-radius:0 20px 20px 0;background-position:100% 0}
+.rcc .env-seal::after{content:"★";position:absolute;inset:0;display:grid;place-items:center;color:#f8dede;font-size:16px;text-shadow:0 1px 1px rgba(0,0,0,.4)}
+.rcc .env.opening .env-seal i:first-child{animation:rcc-msl .5s ease-in forwards}
+.rcc .env.opening .env-seal i:last-child{animation:rcc-msr .5s ease-in forwards}
+.rcc .env.opening .env-seal::after{animation:rcc-msf .2s forwards}
 .rcc .env.opened .env-seal{display:none}
-@keyframes rcc-mseal{to{transform:scale(1.5);opacity:0}}
+@keyframes rcc-msl{to{transform:translate(-9px,10px) rotate(-24deg);opacity:0}}
+@keyframes rcc-msr{to{transform:translate(9px,10px) rotate(24deg);opacity:0}}
+@keyframes rcc-msf{to{opacity:0}}
 .rcc .env-addr{position:absolute;left:0;right:0;bottom:15px;z-index:3;text-align:center;font-family:` + KAI + `;font-size:16px;color:#4a2c14;pointer-events:none}
 .rcc .env-stp{position:absolute;right:12px;bottom:12px;z-index:3;width:28px;height:34px;border:1px dashed rgba(58,36,16,.55);display:grid;place-items:center;color:#a3293a;font-size:12px;background:rgba(255,255,255,.3);pointer-events:none}
 .rcc .myl{position:absolute;left:16px;bottom:30px;width:128px;height:158px;overflow:hidden;transform:rotate(-6deg);cursor:pointer;background-color:#f1e5c2;background-image:linear-gradient(transparent 32%,rgba(90,58,24,.3) 33%,rgba(255,255,255,.25) 34%,transparent 36%,transparent 65%,rgba(90,58,24,.3) 66%,rgba(255,255,255,.25) 67%,transparent 69%),var(--tex-paper,none);background-size:auto,256px 256px;box-shadow:0 8px 12px rgba(0,0,0,.6),inset 0 0 14px rgba(150,100,40,.3)}
@@ -68,23 +77,24 @@
 .rcc .myl::before{content:"";position:absolute;left:30px;top:-3px;width:60px;height:16px;background:rgba(255,236,170,.62);transform:rotate(-3deg);box-shadow:0 1px 2px rgba(0,0,0,.25)}
 .rcc .myl b{position:absolute;left:0;right:0;bottom:7px;text-align:center;font-weight:400;font-size:11px;color:var(--soft);letter-spacing:.2em}
 .rcc .pcd{position:absolute;right:14px;bottom:34px;width:158px;height:106px;padding:5px;transform:rotate(5deg);cursor:pointer;background:#fbf6e6;border-radius:2px;box-shadow:0 8px 12px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.6)}
-.rcc .pcd img{display:block;width:100%;height:100%;object-fit:cover}
+.rcc .pcd img{display:block;width:100%;height:100%;object-fit:contain}
 .rcc .pcd .pb{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px dashed rgba(90,58,24,.4);color:#8a5a1c;font-size:11px;line-height:1.35;text-align:center;padding:0 8px}
 .rcc .pen{position:absolute;left:118px;bottom:14px;width:104px;transform:rotate(-9deg);filter:drop-shadow(0 3px 3px rgba(0,0,0,.5))}
 /* ---------- 读信 / 明信片 ---------- */
 .rcc .mov{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:18px}
-.rcc .mbk{position:absolute;inset:0;background:rgba(20,10,0,.64)}
+.rcc .mbk{position:absolute;inset:0;background:rgba(20,10,0,.64);animation:rcc-mfade .4s ease-out}
+@keyframes rcc-mfade{from{opacity:0}}
 .rcc .mw{position:relative;width:100%;max-width:440px}
 .rcc .mx{position:absolute;right:-4px;top:-14px;z-index:3}
 .rcc .mpap{position:relative;max-height:78vh;max-height:78dvh;overflow:auto;padding:30px 24px 28px;border-radius:3px;color:#3a2410;font-family:` + KAI + `;font-size:17px;line-height:34px;white-space:pre-wrap;word-break:break-word;background-color:#f3e7c6;background-image:repeating-linear-gradient(transparent 0 33px,rgba(120,80,40,.18) 33px 34px),var(--tex-paper,none);background-size:auto,256px 256px;box-shadow:0 12px 30px rgba(0,0,0,.65),inset 0 0 26px rgba(150,100,40,.4);animation:rcc-munf .6s cubic-bezier(.2,.9,.3,1)}
 @keyframes rcc-munf{from{opacity:0;transform:translateY(34px) scale(.92)}to{opacity:1;transform:none}}
 .rcc .mpap .gap{height:34px}
 .rcc .mcw{perspective:1100px;display:flex;justify-content:center;animation:rcc-munf .6s cubic-bezier(.2,.9,.3,1)}
-.rcc .mcard{position:relative;width:min(86vw,380px);aspect-ratio:3/2;transform-style:preserve-3d;transition:transform .8s cubic-bezier(.3,.8,.3,1);cursor:pointer}
+.rcc .mcard{--ar:1.5;position:relative;width:min(86vw,380px,calc(56vh * var(--ar)));aspect-ratio:var(--ar);transform-style:preserve-3d;transition:transform .8s cubic-bezier(.3,.8,.3,1);cursor:pointer}
 .rcc .mcard.flip{transform:rotateY(180deg)}
 .rcc .mf,.rcc .mb{position:absolute;inset:0;border-radius:4px;overflow:hidden;-webkit-backface-visibility:hidden;backface-visibility:hidden;box-shadow:0 12px 24px rgba(0,0,0,.6)}
 .rcc .mf{background:#fbf6e6;padding:9px}
-.rcc .mf img{display:block;width:100%;height:100%;object-fit:cover}
+.rcc .mf img{display:block;width:100%;height:100%;object-fit:contain}
 .rcc .mf-b{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px dashed rgba(90,58,24,.4);color:#8a5a1c;text-align:center;font-size:13px;padding:0 14px}
 .rcc .mb{transform:rotateY(180deg);display:flex;gap:12px;padding:14px 12px 14px 16px;color:#3a2410;background-color:#f1e4c0;background-image:var(--tex-paper,none);background-size:256px 256px}
 .rcc .mb::before{content:"";position:absolute;left:58%;top:14px;bottom:14px;width:1px;background:rgba(90,58,24,.4)}
@@ -94,9 +104,15 @@
 .rcc .mb-r b{font-weight:400;font-size:12px;font-family:` + KAI + `}
 .rcc .mb-st{position:absolute;right:0;top:0;width:32px;height:38px;border:1px dashed rgba(58,36,16,.6);display:grid;place-items:center;font-size:14px;color:#a3293a;background:rgba(255,255,255,.35)}
 .rcc .mb-pm{position:absolute;right:22px;top:6px;width:52px;height:52px;border:1px solid rgba(58,36,16,.45);border-radius:50%;display:grid;place-items:center;text-align:center;font:9px/1.25 sans-serif;color:rgba(58,36,16,.6);transform:rotate(-14deg)}
+.rcc .mcard.por .mb{flex-direction:column;padding:16px 16px 14px}
+.rcc .mcard.por .mb::before{display:none}
+.rcc .mcard.por .mb-l{flex:1 1 auto;flex-basis:auto;margin-top:46px;font-size:15px}
+.rcc .mcard.por .mb-r{position:static;flex:0 0 auto;padding-top:0}
+.rcc .mcard.por .mb-st{right:16px;top:16px}
+.rcc .mcard.por .mb-pm{right:56px;top:18px}
 .rcc .mhint{color:#f3e6c8;text-align:center;font-size:12px;margin:12px 0 4px;text-shadow:0 1px 3px rgba(0,0,0,.8)}
 .rcc .mw .wait{color:#f3e6c8;justify-content:center}
-@media (prefers-reduced-motion:reduce){.rcc .env.opening .env-flap,.rcc .env.opening .env-letter,.rcc .env.opening .env-seal{animation-duration:.01s;animation-delay:0s}.rcc .env.wait,.rcc .mt-lt{animation:none}.rcc .mcard{transition-duration:.01s}}
+@media (prefers-reduced-motion:reduce){.rcc .env.opening .env-flap,.rcc .env.opening .env-letter,.rcc .env.opening .env-seal i,.rcc .env.opening .env-seal::after{animation-duration:.01s;animation-delay:0s}.rcc .env.wait,.rcc .mt-lt{animation:none}.rcc .mcard{transition-duration:.01s}}
 `;
 
   // ---------- 圣诞树（拟物）----------
@@ -163,6 +179,16 @@
       return await new Promise(function (ok, no) { var f = new FileReader(); f.onload = function () { ok(f.result); }; f.onerror = no; f.readAsDataURL(b); });
     } catch (err) { return src; }
   }
+  function measure(src) {
+    return new Promise(function (ok) {
+      var im = new Image(), done = false;
+      function fin(v) { if (!done) { done = true; ok(v); } }
+      im.onload = function () { fin(im.naturalWidth && im.naturalHeight ? Math.max(0.5, Math.min(2, im.naturalWidth / im.naturalHeight)) : 1.5); };
+      im.onerror = function () { fin(1.5); };
+      setTimeout(function () { fin(1.5); }, 4000);
+      im.src = src;
+    });
+  }
   var PEN = '<svg class="pen" viewBox="0 0 120 14" aria-hidden="true"><defs><linearGradient id="mp-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6d65a"/><stop offset=".5" stop-color="#e0b53a"/><stop offset="1" stop-color="#a97f1c"/></linearGradient></defs>' +
     '<rect x="14" y="2" width="88" height="10" fill="url(#mp-b)"/><rect x="4" y="2" width="10" height="10" rx="2" fill="#e58d98"/><rect x="14" y="2" width="6" height="10" fill="#b9c3cf"/><path d="M102 2L118 7L102 12Z" fill="#e8c99a"/><path d="M112 5L118 7L112 9Z" fill="#3a2a1a"/></svg>';
 
@@ -177,6 +203,24 @@
       function revealed(w) { return testReveal || Date.now() >= new Date(w.year, 11, 25).getTime(); }
       function wishChar(n) { return st.chars.filter(function (x) { return ctx.nm(x) === n; })[0] || null; }
       function letterById(id) { return st.letters.filter(function (x) { return x.id === id; })[0] || null; }
+      var ovFrom = null;
+      function reduced() { return !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches); }
+      function arOf(l) { return (l && l.pc && l.pc.ar) || 1.5; }
+      // 读信纸 / 明信片从桌上的原位置「展开」出来：先量好起点，再让它从起点的位置和大小过渡到最终位置
+      function flipIn() {
+        var from = ovFrom; ovFrom = null;
+        if (!from || reduced()) return;
+        requestAnimationFrame(function () {
+          var t = ctx.view.querySelector(ov && ov.k === "card" ? ".mcard" : ".mpap");
+          if (!t || !t.animate) return;
+          var r = t.getBoundingClientRect();
+          if (!r.width || !from.width) return;
+          var par = t.closest(".mcw") || t, sc = Math.min(1, from.width / r.width);
+          par.style.animation = "none";
+          t.animate([{ transform: "translate(" + ((from.left + from.width / 2) - (r.left + r.width / 2)) + "px," + ((from.top + from.height / 2) - (r.top + r.height / 2)) + "px) scale(" + sc + ")", opacity: 0.85 },
+            { transform: "none", opacity: 1 }], { duration: 560, easing: "cubic-bezier(.2,.85,.25,1)" });
+        });
+      }
       function saveLetters() { return roche.storage.set("letters", st.letters); }
       function saveWishes() { return roche.storage.set("wishes", st.wishes); }
 
@@ -229,12 +273,14 @@
           '<div class="env-letter"' + (opened && !animating ? ' data-act="mail.read" data-k="reply"' : "") + '></div>' +
           '<div class="env-front"><i class="fl"></i><i class="fr"></i><i class="fb"></i></div>' +
           '<div class="env-addr">致 ' + e(ctx.userName()) + '</div><div class="env-stp">★</div>' +
-          '<div class="env-flap"><i></i><i></i></div><div class="env-seal">★</div></div>';
+          '<div class="env-flap"><i></i><i></i></div><div class="env-seal"><i></i><i></i></div></div>';
         var im = imgs[l.id], pcd = "";
-        if (l.reply) pcd = '<div class="pcd" data-act="mail.card" role="button" aria-label="明信片">' + (im ? '<img src="' + e(im) + '" alt="">' :
+        var ar = arOf(l), pw = ar >= 1 ? 158 : Math.round(140 * ar) + 10, ph = ar >= 1 ? Math.round(148 / ar) + 10 : 150;
+        if (!im) { pw = 158; ph = 106; }
+        if (l.reply) pcd = '<div class="pcd" data-act="mail.card" role="button" aria-label="明信片" style="width:' + pw + 'px;height:' + ph + 'px">' + (im ? '<img src="' + e(im) + '" alt="">' :
           '<div class="pb">' + (l.pc ? '<span>✻</span><span>点开看看</span>' : '<span>点一下，请圣诞老人补寄明信片</span>') + '</div>') + '</div>';
         return '<div class="pg"><div class="bar"><button class="gbtn" data-act="core.back" aria-label="返回">‹</button><div class="ttl"><div class="en">Letters</div><div class="zh">信 件</div></div></div>' +
-          '<div class="desk">' + PEN + env + '<div class="desk-cap">' + e(cap) + '</div>' +
+          '<div class="desk' + (ov && ov.k === "reply" ? " rd" : "") + '">' + PEN + env + '<div class="desk-cap">' + e(cap) + '</div>' +
           '<div class="myl" data-act="mail.read" data-k="mine"><p>' + e(clip(l.text, 120)) + '</p><b>我的信</b></div>' + pcd + '</div></div>';
       }
       function ovHtml() {
@@ -248,7 +294,7 @@
           var back = '<div class="mb"><div class="mb-l">' + e((pc && pc.text) || "（还没有话）") + '</div><div class="mb-r"><div class="mb-st">★</div><div class="mb-pm">北极邮局<br>' + e(ctx.fmt(l.replyAt)) + '</div><u></u><u></u><u></u><b>' + e(ctx.userName()) + ' 收</b></div></div>';
           var btn = !pc ? '<button class="btn" data-act="mail.cardmake"' + (jc ? " disabled" : "") + '>' + (jc ? "写明信片中" : "请圣诞老人补寄（调用一次模型）") + '</button>'
             : '<button class="btn" data-act="mail.cardimg"' + (ji ? " disabled" : "") + '>' + (ji ? "绘制中" : (im ? "重画一张" : "生成明信片图（消耗额度，可选）")) + '</button>';
-          return '<div class="mov">' + bk + '<div class="mw">' + close + '<div class="mcw"><div class="mcard' + (flip ? " flip" : "") + '" data-act="mail.flip">' + front + back + '</div></div>' +
+          return '<div class="mov">' + bk + '<div class="mw">' + close + '<div class="mcw"><div class="mcard' + (flip ? " flip" : "") + (im && arOf(l) < 1 ? " por" : "") + '" style="--ar:' + (im ? arOf(l) : 1.5) + '" data-act="mail.flip">' + front + back + '</div></div>' +
             '<p class="mhint">点卡片翻面</p><div class="center" style="margin:6px 0">' + btn + '</div>' + ((ji || jc) ? ctx.wait("正在准备，你可以先关掉看别的") : "") + '</div></div>';
         }
         var re = ov.k === "reply", body = re ? ctx.rich(l.reply || "", ctx.charById(l.charId)) : e(l.text) + '\n\n' + e(ctx.fmt(l.sentAt));
@@ -256,12 +302,15 @@
       }
 
       // ---------- 动作 ----------
+      // 开信封分镜：封蜡裂开 → 封口翻开 → 信纸升起 → 举到面前 → 展开成读信纸
       function playOpen(l) {
+        if (reduced()) { l.opened = true; saveLetters(); ov = { k: "reply" }; ctx.render(); return; }
         anim = l.id; ctx.render();
         later(function () {
+          var el = ctx.view.querySelector(".env-letter"), r = el ? el.getBoundingClientRect() : null;
           anim = null; l.opened = true; saveLetters();
-          if (open === l.id) { ctx.render(); later(function () { if (open === l.id && !ov) { ov = { k: "reply" }; ctx.render(); } }, 450); }
-        }, 1600);
+          if (open === l.id) { ov = { k: "reply" }; ovFrom = r; ctx.render(); flipIn(); }
+        }, 2100);
       }
       function genReply(l) {
         var ch = ctx.charById(l.charId) || ctx.curChar();
@@ -278,7 +327,10 @@
       }
       async function loadImg(l) {
         if (!l || !l.pc || !l.pc.img || imgs[l.id]) return;
-        try { var s = await roche.storage.get("pcimg:" + l.id); if (s) { imgs[l.id] = s; if (open === l.id) ctx.render(); } } catch (err) { /* 读不到就显示空白明信片 */ }
+        try {
+          var s = await roche.storage.get("pcimg:" + l.id);
+          if (s) { imgs[l.id] = s; if (!l.pc.ar) { l.pc.ar = await measure(s); saveLetters(); } if (open === l.id) ctx.render(); }
+        } catch (err) { /* 读不到就显示空白明信片 */ }
       }
       function polish(fb) {
         var cur = String(st.letterText || "").trim();
@@ -388,9 +440,9 @@
             if (!L2.opened) return playOpen(L2);
             return;
           }
-          if (name === "read") { ov = { k: el.dataset.k }; return ctx.render(); }
+          if (name === "read") { ovFrom = el.getBoundingClientRect(); ov = { k: el.dataset.k }; ctx.render(); return flipIn(); }
           if (name === "cov") { ov = null; return ctx.render(); }
-          if (name === "card") { ov = { k: "card" }; flip = false; return ctx.render(); }
+          if (name === "card") { ovFrom = el.getBoundingClientRect(); ov = { k: "card" }; flip = false; ctx.render(); return flipIn(); }
           if (name === "flip") {
             var cd = ctx.view.querySelector(".mcard");
             if (cd) { cd.classList.toggle("flip"); flip = cd.classList.contains("flip"); }
@@ -421,7 +473,7 @@
               if (!src) throw new Error("没有拿到图片，请检查生图设置");
               src = await toData(src);
               await roche.storage.set("pcimg:" + L4.id, src);
-              imgs[L4.id] = src; L4.pc.img = true; await saveLetters();
+              imgs[L4.id] = src; L4.pc.img = true; L4.pc.ar = await measure(src); await saveLetters();
             });
             return;
           }
