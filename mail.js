@@ -316,6 +316,10 @@
         if (!l || !l.pc || !l.pc.img || imgs[l.id]) return;
         try {
           var s = await roche.storage.get("pcimg:" + l.id);
+          if (s && s.length > 400000 && R.img) {   // 以前存的大图：顺手缩小
+            var pr = await R.img.prepare(s, 1024);
+            if (pr.src.length < s.length) { s = pr.src; await roche.storage.set("pcimg:" + l.id, s); l.pc.ar = pr.ar; saveLetters(); }
+          }
           if (s) { imgs[l.id] = s; if (!l.pc.ar) { l.pc.ar = await measure(s); saveLetters(); } if (open === l.id) ctx.render(); }
         } catch (err) { /* 读不到就显示空白明信片 */ }
       }
@@ -469,9 +473,9 @@
               var r = await roche.ai.generateImage({ prompt: "vintage christmas postcard illustration, " + (L4.pc.scene || "a snowy cabin with warm lights") + ", warm light, soft storybook watercolor style, no text, no letters" });
               var src = ctx.imgSrc(r);
               if (!src) throw new Error("没有拿到图片，请检查生图设置");
-              src = await toData(src);
-              await roche.storage.set("pcimg:" + L4.id, src);
-              imgs[L4.id] = src; L4.pc.img = true; L4.pc.ar = await measure(src); await saveLetters();
+              var pr = R.img ? await R.img.prepare(src, 1024) : { src: await toData(src), ar: await measure(src) };
+              await roche.storage.set("pcimg:" + L4.id, pr.src);
+              imgs[L4.id] = pr.src; L4.pc.img = true; L4.pc.ar = pr.ar; await saveLetters();
             });
             return;
           }

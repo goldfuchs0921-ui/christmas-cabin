@@ -32,6 +32,7 @@
       if (!g || !g.name) throw new Error("礼物内容不完整，再试一次");
       var e0 = ctx.st.d.gift[c.id] || { hist: [] };
       e0.hist.push(g.name); e0.cur = g; ctx.st.d.gift[c.id] = e0;
+      try { Promise.resolve(ctx.roche.storage.delete("giftimg:" + c.id)).catch(function () { /* 没有旧图 */ }); } catch (err) { /* 忽略 */ }
       if (ctx.st.view === "gift") ctx.st.anim = c.id;
     },
     run: async function (ctx, c) {
@@ -43,7 +44,29 @@
     id: "gift", style: CSS,
     home: { order: 2, en: "Gift Box", zh: "礼 物 盲 盒", desc: "TA 根据对你的了解，挑一份礼物", icon: "gift", svg: SVG },
     create: function (ctx) {
+      var imgs = {}, loading = {};
+      // 礼物图单独存在 giftimg:<角色id>，不再跟着主数据一起反复读写
+      function ensureImg(c, g) {
+        if (!g || !g.hasImg || imgs[c.id] !== undefined || loading[c.id]) return;
+        loading[c.id] = true;
+        Promise.resolve(ctx.roche.storage.get("giftimg:" + c.id)).then(function (s) { imgs[c.id] = s || ""; loading[c.id] = false; if (ctx.st.view === "gift") ctx.render(); })
+          .catch(function () { imgs[c.id] = ""; loading[c.id] = false; });
+      }
+      async function migrate() {   // 旧版本把图直接存在主数据里：搬出来并缩小
+        var map = ctx.st.d.gift || {}, moved = false, k;
+        for (k in map) {
+          var g = map[k] && map[k].cur;
+          if (!g || !g.img) continue;
+          try {
+            var pr = R.img ? await R.img.prepare(g.img, 1024) : { src: g.img };
+            await ctx.roche.storage.set("giftimg:" + k, pr.src);
+            imgs[k] = pr.src; g.hasImg = true; delete g.img; moved = true;
+          } catch (err) { /* 这一张搬不动就留着，下次再试 */ }
+        }
+        if (moved) await ctx.save();
+      }
       return {
+        init: function () { migrate(); },
         view: function () {
           var c = ctx.curChar(), e0 = c && ctx.st.d.gift[c.id], g = e0 && e0.cur, e = ctx.esc;
           var pend = c && ctx.st.jobs["gift:" + c.id], pimg = c && ctx.st.jobs["img:" + c.id];
@@ -52,7 +75,9 @@
             '<div class="center"><button class="btn" data-act="gift.open"' + (pend ? " disabled" : "") + '>' + (pend ? "生成中" : (g ? "换一个" : "拆开盲盒")) + '</button></div>';
           if (pend) h += ctx.wait("TA 正在挑礼物，你可以先去别处逛逛");
           if (g) {
-            h += '<div class="gifted"><h3 class="en">' + e(g.name) + '</h3><p>' + e(g.reason) + '</p>' + (g.img ? '<img src="' + e(g.img) + '" alt="">' : "") + '</div>' +
+            ensureImg(c, g);
+            var gsrc = g.img || (g.hasImg && imgs[c.id]) || "";
+            h += '<div class="gifted"><h3 class="en">' + e(g.name) + '</h3><p>' + e(g.reason) + '</p>' + (gsrc ? '<img src="' + e(gsrc) + '" alt="">' : "") + '</div>' +
               '<div class="center"><button class="btn ghost sm" data-act="gift.img"' + (pimg ? " disabled" : "") + '>' + (pimg ? "绘制中" : "生成礼物图（消耗额度，可选）") + '</button></div>';
             if (pimg) h += ctx.wait("正在画礼物图");
           }
@@ -73,7 +98,9 @@
               var r = await ctx.roche.ai.generateImage({ prompt: "christmas gift illustration, " + (g1.image || g1.name) + ", warm light, vintage storybook style, no text" });
               var src = ctx.imgSrc(r);
               if (!src) throw new Error("没有拿到图片，请检查生图设置");
-              g1.img = src;
+              var pr = R.img ? await R.img.prepare(src, 1024) : { src: src };
+              await ctx.roche.storage.set("giftimg:" + c.id, pr.src);
+              imgs[c.id] = pr.src; g1.hasImg = true; delete g1.img;
             });
           }
         }

@@ -63,6 +63,40 @@
   }
 
   R.tex = { wood: wood, paper: paper };
+
+  // ---------- 图片压缩：缩到长边 maxSide 像素，转成 webp（不支持就用 jpeg）；任何一步失败都原样返回，不影响使用 ----------
+  function loadImage(src, cors) {
+    return new Promise(function (ok, no) {
+      var im = new Image(), t = setTimeout(function () { no(new Error("图片加载超时")); }, 15000);
+      if (cors) im.crossOrigin = "anonymous";
+      im.onload = function () { clearTimeout(t); ok(im); };
+      im.onerror = function () { clearTimeout(t); no(new Error("图片加载失败")); };
+      im.src = src;
+    });
+  }
+  function blobToData(b) { return new Promise(function (ok, no) { var f = new FileReader(); f.onload = function () { ok(f.result); }; f.onerror = no; f.readAsDataURL(b); }); }
+  R.img = {
+    prepare: async function (src, maxSide, quality) {
+      maxSide = maxSide || 1024; quality = quality || 0.82;
+      var out = { src: src, ar: 1.5, w: 0, h: 0, ok: false };
+      try {
+        var data = src, isData = /^data:/.test(src);
+        if (!isData) { try { data = await blobToData(await (await fetch(src)).blob()); isData = true; } catch (e1) { data = src; } }
+        var im;
+        try { im = await loadImage(data, !isData); } catch (e2) { im = await loadImage(data, false); }
+        var w = im.naturalWidth, h = im.naturalHeight;
+        out.w = w; out.h = h; out.ar = w && h ? Math.max(0.5, Math.min(2, w / h)) : 1.5;
+        var k = Math.min(1, maxSide / Math.max(w, h)), cw = Math.max(1, Math.round(w * k)), ch = Math.max(1, Math.round(h * k));
+        var cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+        cv.getContext("2d").drawImage(im, 0, 0, cw, ch);
+        var u = cv.toDataURL("image/webp", quality);
+        if (u.indexOf("data:image/webp") !== 0) u = cv.toDataURL("image/jpeg", quality);
+        if (isData && u.length < data.length) { out.src = u; out.ok = true; } else if (isData) out.src = data;
+      } catch (err) { /* 压缩失败（比如外链图不允许读取）就用原图 */ }
+      return out;
+    },
+    fmt: function (n) { return n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB"; }
+  };
   var cache = null;
   function toUrl(fn, size) {
     var cv = document.createElement("canvas"); cv.width = cv.height = size;

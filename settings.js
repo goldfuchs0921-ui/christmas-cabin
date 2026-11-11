@@ -30,8 +30,60 @@
   R.add({
     id: "settings", style: CSS,
     create: function (ctx) {
-      var cfg = ctx.cfg, roche = ctx.roche, st = ctx.st, sub = null, probe = "";
-      var PAGES = { display: ["Display", "显 示 与 声 音"], gen: ["Generate", "生 成 设 置"], batch: ["Make All", "一 键 生 成"], data: ["Data", "数 据 管 理"], about: ["About", "高 级 与 关 于"] };
+      var cfg = ctx.cfg, roche = ctx.roche, st = ctx.st, sub = null, probe = "", info = null, sbusy = false, smsg = "";
+      function mb(n) { return R.img ? R.img.fmt(n) : Math.max(1, Math.round(n / 1024)) + " KB"; }
+      function safeDel(k) { return Promise.resolve().then(function () { return roche.storage.delete(k); }).catch(function () { /* 没有就算了 */ }); }
+      function delGiftImgs() { return Promise.all(st.chars.map(function (c) { return safeDel("giftimg:" + c.id); })); }
+      function delCardImgs() { return Promise.all((st.letters || []).map(function (l) { return safeDel("pcimg:" + l.id); })); }
+      // 图片：礼物图（旧版直接存在主数据里的也算）和明信片图
+      function imgTasks() {
+        var out = [], gm = st.d.gift || {}, k;
+        for (k in gm) { var g = gm[k] && gm[k].cur; if (g && (g.img || g.hasImg)) out.push({ kind: "gift", id: k, g: g }); }
+        (st.letters || []).forEach(function (l) { if (l.pc && l.pc.img) out.push({ kind: "card", id: l.id, l: l }); });
+        return out;
+      }
+      async function scan() {
+        var gi = 0, gb = 0, pi = 0, pb = 0, an = 0, ab = 0, tasks = imgTasks(), i;
+        for (i = 0; i < tasks.length; i++) {
+          var t = tasks[i], s = t.kind === "gift" ? (t.g.img || await roche.storage.get("giftimg:" + t.id)) : await roche.storage.get("pcimg:" + t.id);
+          if (!s) continue;
+          if (t.kind === "gift") { gi++; gb += s.length; } else { pi++; pb += s.length; }
+        }
+        var idx = (await roche.storage.get("recIndex")) || [];
+        idx.forEach(function (x) { an++; ab += Math.round((x.size || 0) * 1.34); });
+        var txt = JSON.stringify(st.d, function (k, v) { return k === "img" && typeof v === "string" && v.length > 1000 ? undefined : v; }).length + JSON.stringify(st.letters || []).length + JSON.stringify(st.wishes || []).length;
+        info = { gi: gi, gb: gb, pi: pi, pb: pb, an: an, ab: ab, tb: txt };
+      }
+      async function compressAll() {
+        if (!R.img) return roche.ui.toast("缺少图片压缩模块，请更新 theme.js");
+        var tasks = imgTasks(), saved = 0, i, needSave = false, needLetters = false;
+        sbusy = true;
+        for (i = 0; i < tasks.length; i++) {
+          var t = tasks[i], key = (t.kind === "gift" ? "giftimg:" : "pcimg:") + t.id;
+          smsg = "正在压缩（" + (i + 1) + "/" + tasks.length + "）…"; ctx.render();
+          try {
+            var inline = t.kind === "gift" && !!t.g.img, cur = inline ? t.g.img : await roche.storage.get(key);
+            if (!cur) continue;
+            var pr = await R.img.prepare(cur, 1024);
+            if (pr.src.length < cur.length || inline) { await roche.storage.set(key, pr.src); if (pr.src.length < cur.length) saved += cur.length - pr.src.length; }
+            if (inline) { t.g.hasImg = true; delete t.g.img; needSave = true; }
+            if (t.kind === "card" && pr.ar) { t.l.pc.ar = pr.ar; needLetters = true; }
+          } catch (err) { /* 这一张处理不了就跳过 */ }
+        }
+        if (needSave) await ctx.save();
+        if (needLetters) await roche.storage.set("letters", st.letters);
+        await scan(); sbusy = false; smsg = "";
+        roche.ui.toast(saved > 0 ? "压缩完成，省了 " + mb(saved) : "没有需要压缩的大图"); ctx.render();
+      }
+      function pageStore() {
+        var h = '<div class="grp"><small class="hint" style="display:block;margin:0 0 8px">图片都存在插件自己的存储里。新生成的图会自动缩小（长边约 1024 像素），不会再占很多空间；以前存的大图可以在这里压缩，只会缩小，不会放大。</small>';
+        h += info ? '<div class="diag">礼物图：' + info.gi + ' 张 · ' + mb(info.gb) + '<br>明信片图：' + info.pi + ' 张 · ' + mb(info.pb) + '<br>我的唱片：' + info.an + ' 首 · 约 ' + mb(info.ab) + '（占得最多，不用的可以在唱片机里删掉）<br>文字数据：约 ' + mb(info.tb) + '</div>'
+          : '<div class="diag">还没有计算，点下面的「计算占用」。</div>';
+        h += '<div class="btns"><button class="btn ghost sm" data-act="settings.scan"' + (sbusy ? " disabled" : "") + '>计算占用</button><button class="btn ghost sm" data-act="settings.comp"' + (sbusy ? " disabled" : "") + '>压缩已有图片</button></div>';
+        if (sbusy) h += ctx.wait(ctx.esc(smsg || "处理中…"));
+        return h + '</div>';
+      }
+      var PAGES = { display: ["Display", "显 示 与 声 音"], gen: ["Generate", "生 成 设 置"], batch: ["Make All", "一 键 生 成"], data: ["Data", "数 据 管 理"], store: ["Storage", "存 储 与 图 片"], about: ["About", "高 级 与 关 于"] };
       function on(v) { return v ? "开" : "关"; }
       function sw(k, title, desc) {
         return '<div class="set"><div><b>' + title + '</b><small>' + desc + '</small></div><button class="sw' + (cfg[k] ? " on" : "") +
@@ -51,6 +103,7 @@
           row("生成设置", "流式 " + on(cfg.stream) + " · 读取记忆 " + on(cfg.memory) + " · 最近聊天 " + cfg.chatLines + " 条", 'data-act="settings.open" data-p="gen"') +
           row("一键生成", "模式：" + (cfg.batchMode === "once" ? "一次调用" : "逐项依次调用"), 'data-act="settings.open" data-p="batch"') +
           row("世界书 · 预设 · 正则", (R.worldbook && R.worldbook.brief) ? R.worldbook.brief() : "世界书、预设、正则的勾选与导入", 'data-act="core.go" data-v="worldbook"') +
+          row("存储与图片", info ? "礼物图 " + info.gi + " 张 · 明信片图 " + info.pi + " 张" : "查看占用，压缩已有的图片", 'data-act="settings.open" data-p="store"') +
           row("数据管理", "清空愿望、信件和生成结果", 'data-act="settings.open" data-p="data"') +
           row("高级与关于", "测试模式 " + on(cfg.test) + " · 版本 v" + R.ver, 'data-act="settings.open" data-p="about"');
       }
@@ -122,7 +175,7 @@
         back: function () { if (sub) { sub = null; return true; } return false; },
         view: function () {
           if (!sub) return ctx.page("Settings", "设 置", main());
-          var body = { display: pageDisplay, gen: pageGen, batch: pageBatch, data: pageData, about: pageAbout }[sub]();
+          var body = { display: pageDisplay, gen: pageGen, batch: pageBatch, data: pageData, store: pageStore, about: pageAbout }[sub]();
           return ctx.page(PAGES[sub][0], PAGES[sub][1], body);
         },
         act: async function (name, el) {
@@ -133,6 +186,12 @@
             return ctx.render();
           }
           if (name === "bmode") { cfg.batchMode = el.dataset.m === "once" ? "once" : "each"; await ctx.saveCfg(); return ctx.render(); }
+          if (name === "scan") { if (sbusy) return; sbusy = true; smsg = "正在计算…"; ctx.render(); try { await scan(); } catch (err) { roche.ui.toast("计算失败：" + (err && err.message || err)); } sbusy = false; smsg = ""; return ctx.render(); }
+          if (name === "comp") {
+            if (sbusy) return;
+            if (!(await roche.ui.confirm({ title: "压缩已有图片", message: "会把已存的礼物图和明信片图缩小（长边约 1024 像素）。只会缩小，不会放大，缩小后无法还原，确定吗？" }))) return;
+            return compressAll();
+          }
           if (name === "probe") { try { probe = probeText(); } catch (err) { probe = "探测失败：" + (err && err.message || err); } return ctx.render(); }
           if (name === "copyProbe") {
             var okc = false;
@@ -146,9 +205,10 @@
           if (name === "clr") {
             var w = el.dataset.w;
             if (w === "wishes") return clearKeys("清空愿望", "树上所有愿望和愿望回应都会删除，确定吗？", async function () { st.wishes = []; st.wishReply = null; await roche.storage.delete("wishes"); await roche.storage.delete("wishReply"); });
-            if (w === "letters") return clearKeys("清空信件", "所有写过的信和回信都会删除，确定吗？", async function () { st.letters = []; await roche.storage.delete("letters"); });
-            if (w === "cache") return clearKeys("清空生成结果", "好孩子名单、礼物和交换礼物的记录会删除（可以重新生成），确定吗？", async function () { st.d.cert = {}; st.d.gift = {}; st.d.scene = null; st.d.draw = null; await ctx.save(); });
+            if (w === "letters") return clearKeys("清空信件", "所有写过的信和回信都会删除，确定吗？", async function () { await delCardImgs(); st.letters = []; await roche.storage.delete("letters"); });
+            if (w === "cache") return clearKeys("清空生成结果", "好孩子名单、礼物和交换礼物的记录会删除（可以重新生成），确定吗？", async function () { await delGiftImgs(); st.d.cert = {}; st.d.gift = {}; st.d.scene = null; st.d.draw = null; await ctx.save(); });
             return clearKeys("全部清空", "愿望、信件、生成结果，以及雪仗的战绩、台词和评价都会清空，确定吗？", async function () {
+              await delCardImgs(); await delGiftImgs();
               st.wishes = []; st.letters = []; st.wishReply = null; st.d = { cert: {}, gift: {}, ready: {} };
               await Promise.all([roche.storage.delete("wishes"), roche.storage.delete("letters"), roche.storage.delete("wishReply"), roche.storage.delete("data")]);
             });
