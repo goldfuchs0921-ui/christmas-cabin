@@ -31,6 +31,7 @@
 .rcc .pm{position:absolute;top:16px;right:46px;width:58px;height:58px;border:1px solid rgba(58,36,16,.45);border-radius:50%;display:grid;place-items:center;text-align:center;font:10px/1.25 sans-serif;color:rgba(58,36,16,.6);transform:rotate(-14deg);pointer-events:none}
 .rcc .lt{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 0;border-bottom:1px dashed rgba(90,58,24,.4)}
 .rcc .lt small{display:block;color:var(--soft)}
+.rcc .lt .del{background:none;border:0;color:var(--soft);font-size:18px;padding:8px 9px}
 .rcc .mm-v{font-size:12px;color:var(--soft);white-space:nowrap}
 /* ---------- 木桌 ---------- */
 .rcc .desk{position:relative;min-height:580px;border-radius:14px;overflow:hidden;background-color:#4a2c18;background-image:radial-gradient(ellipse 85% 55% at 16% 0%,rgba(255,214,150,.42),rgba(255,214,150,0) 72%),var(--tex-wood,none);background-size:auto,256px 256px;box-shadow:inset 0 0 44px rgba(0,0,0,.7),inset 0 0 0 2px rgba(255,214,150,.12),0 0 0 3px #2c180c,0 10px 18px rgba(0,0,0,.55)}
@@ -41,35 +42,25 @@
 .rcc .env.far{opacity:.62;filter:drop-shadow(0 8px 8px rgba(0,0,0,.5)) saturate(.7)}
 .rcc .env.wait{animation:rcc-mwig 1.1s ease-in-out infinite}
 @keyframes rcc-mwig{0%,100%{transform:rotate(-2deg)}25%{transform:rotate(-4deg)}75%{transform:rotate(0)}}
-.rcc .env-back{position:absolute;inset:0;border-radius:4px;background:linear-gradient(#b99556,#a07e42)}
+.rcc .env-back{position:absolute;inset:0;border-radius:4px;background:repeating-linear-gradient(135deg,rgba(0,0,0,.05) 0 2px,transparent 2px 6px),linear-gradient(#b99556,#a07e42);box-shadow:inset 0 16px 16px -10px rgba(0,0,0,.4)}
 .rcc .env-letter{position:absolute;left:8%;right:8%;top:9%;bottom:7px;z-index:2;border-radius:2px;background-color:#f3e7c6;background-image:repeating-linear-gradient(transparent 0 15px,rgba(120,80,40,.2) 15px 16px),var(--tex-paper,none);background-size:auto,256px 256px;box-shadow:0 1px 3px rgba(0,0,0,.45)}
 .rcc .env-front{position:absolute;inset:0;z-index:3;pointer-events:none}
 .rcc .env-front i{position:absolute;inset:0;border-radius:4px;background-color:#ecdcb3;background-image:linear-gradient(rgba(255,255,255,.2),rgba(0,0,0,.07)),var(--tex-paper,none);background-size:auto,256px 256px}
 .rcc .env-front .fl{clip-path:polygon(0 0,53% 54%,0 100%);filter:brightness(.97)}
 .rcc .env-front .fr{clip-path:polygon(100% 0,47% 54%,100% 100%);filter:brightness(.95)}
 .rcc .env-front .fb{clip-path:polygon(0 100%,50% 46%,100% 100%);filter:brightness(1.03)}
-.rcc .env-flap{position:absolute;left:0;right:0;top:0;height:66%;z-index:4;transform-origin:50% 0;transform-style:preserve-3d}
-.rcc .env-flap i{position:absolute;inset:0;clip-path:polygon(0 0,100% 0,50% 100%);-webkit-backface-visibility:hidden;backface-visibility:hidden;background-color:#e6d3a2;background-image:linear-gradient(rgba(255,255,255,.22),rgba(0,0,0,.1)),var(--tex-paper,none);background-size:auto,256px 256px}
-.rcc .env-flap i+i{transform:rotateX(180deg);background-color:#c4a566;filter:brightness(.92)}
-.rcc .env.opening .env-flap{animation:rcc-mflap .75s cubic-bezier(.45,.05,.3,1) .22s both}
-.rcc .env.opened .env-flap{transform:rotateX(180deg);z-index:0}
-@keyframes rcc-mflap{0%{transform:rotateX(0);z-index:4}49%{z-index:4}50%{z-index:0}100%{transform:rotateX(180deg);z-index:0}}
-.rcc .env.opening .env-letter{animation:rcc-mslide 1.25s .8s both}
+.rcc .env-flap{position:absolute;left:0;right:0;top:0;height:66%;z-index:4;transform-origin:50% 0;clip-path:polygon(0 0,100% 0,50% 100%);background-color:#e6d3a2;background-image:linear-gradient(rgba(255,255,255,.22),rgba(0,0,0,.1)),var(--tex-paper,none);background-size:auto,256px 256px}
+.rcc .env.opening .env-flap{animation:rcc-mflap .95s linear .15s both}
+.rcc .env.opened .env-flap{transform:perspective(520px) rotateX(180deg);z-index:0;background-color:#c4a566;filter:brightness(.93)}
+@keyframes rcc-mflap{0%{transform:perspective(520px) rotateX(0deg);z-index:4;filter:brightness(1);animation-timing-function:cubic-bezier(.42,0,1,1)}49%{transform:perspective(520px) rotateX(88deg);z-index:4;filter:brightness(.78);background-color:#e6d3a2}50%{z-index:0;background-color:#c4a566;animation-timing-function:cubic-bezier(0,0,.58,1)}100%{transform:perspective(520px) rotateX(180deg);z-index:0;background-color:#c4a566;filter:brightness(.93)}}
+.rcc .env.opening .env-letter{animation:rcc-mslide 1.25s 1.15s both}
 .rcc .env.opened .env-letter{transform:translateY(-62%);cursor:pointer}
 @keyframes rcc-mslide{0%{transform:translateY(0) rotate(0);z-index:2;animation-timing-function:cubic-bezier(.25,.9,.3,1)}52%{transform:translateY(-62%) rotate(-1.5deg);z-index:2;animation-timing-function:cubic-bezier(.4,0,.2,1)}53%{z-index:6}100%{transform:translateY(-96%) rotate(0) scale(1.12);z-index:6}}
 .rcc .desk.rd .env-letter{visibility:hidden}
-.rcc .env-seal{position:absolute;left:50%;top:57%;width:40px;height:40px;margin:-20px 0 0 -20px;z-index:5;display:flex;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}
-.rcc .env-seal i{flex:1;background:radial-gradient(circle 34px at 24px 13px,#e0606e,#a3293a 55%,#6e1522);background-size:200% 100%}
-.rcc .env-seal i:first-child{border-radius:20px 0 0 20px;background-position:0 0}
-.rcc .env-seal i:last-child{border-radius:0 20px 20px 0;background-position:100% 0}
-.rcc .env-seal::after{content:"★";position:absolute;inset:0;display:grid;place-items:center;color:#f8dede;font-size:16px;text-shadow:0 1px 1px rgba(0,0,0,.4)}
-.rcc .env.opening .env-seal i:first-child{animation:rcc-msl .5s ease-in forwards}
-.rcc .env.opening .env-seal i:last-child{animation:rcc-msr .5s ease-in forwards}
-.rcc .env.opening .env-seal::after{animation:rcc-msf .2s forwards}
+.rcc .env-seal{position:absolute;left:50%;top:57%;width:40px;height:40px;margin:-20px 0 0 -20px;z-index:5;border-radius:50%;display:grid;place-items:center;color:#f8dede;font-size:16px;background:radial-gradient(circle at 35% 30%,#dc5866,#a3293a 55%,#6e1522);box-shadow:inset 0 2px 3px rgba(255,255,255,.35),inset 0 -3px 5px rgba(0,0,0,.4),0 2px 4px rgba(0,0,0,.5)}
+.rcc .env.opening .env-seal{animation:rcc-mseal .35s ease-out forwards}
+@keyframes rcc-mseal{to{transform:scale(1.5);opacity:0}}
 .rcc .env.opened .env-seal{display:none}
-@keyframes rcc-msl{to{transform:translate(-9px,10px) rotate(-24deg);opacity:0}}
-@keyframes rcc-msr{to{transform:translate(9px,10px) rotate(24deg);opacity:0}}
-@keyframes rcc-msf{to{opacity:0}}
 .rcc .env-addr{position:absolute;left:0;right:0;bottom:15px;z-index:3;text-align:center;font-family:` + KAI + `;font-size:16px;color:#4a2c14;pointer-events:none}
 .rcc .env-stp{position:absolute;right:12px;bottom:12px;z-index:3;width:28px;height:34px;border:1px dashed rgba(58,36,16,.55);display:grid;place-items:center;color:#a3293a;font-size:12px;background:rgba(255,255,255,.3);pointer-events:none}
 .rcc .myl{position:absolute;left:16px;bottom:30px;width:128px;height:158px;overflow:hidden;transform:rotate(-6deg);cursor:pointer;background-color:#f1e5c2;background-image:linear-gradient(transparent 32%,rgba(90,58,24,.3) 33%,rgba(255,255,255,.25) 34%,transparent 36%,transparent 65%,rgba(90,58,24,.3) 66%,rgba(255,255,255,.25) 67%,transparent 69%),var(--tex-paper,none);background-size:auto,256px 256px;box-shadow:0 8px 12px rgba(0,0,0,.6),inset 0 0 14px rgba(150,100,40,.3)}
@@ -112,7 +103,7 @@
 .rcc .mcard.por .mb-pm{right:56px;top:18px}
 .rcc .mhint{color:#f3e6c8;text-align:center;font-size:12px;margin:12px 0 4px;text-shadow:0 1px 3px rgba(0,0,0,.8)}
 .rcc .mw .wait{color:#f3e6c8;justify-content:center}
-@media (prefers-reduced-motion:reduce){.rcc .env.opening .env-flap,.rcc .env.opening .env-letter,.rcc .env.opening .env-seal i,.rcc .env.opening .env-seal::after{animation-duration:.01s;animation-delay:0s}.rcc .env.wait,.rcc .mt-lt{animation:none}.rcc .mcard{transition-duration:.01s}}
+@media (prefers-reduced-motion:reduce){.rcc .env.opening .env-flap,.rcc .env.opening .env-letter,.rcc .env.opening .env-seal{animation-duration:.01s;animation-delay:0s}.rcc .env.wait,.rcc .mt-lt{animation:none}.rcc .mcard{transition-duration:.01s}}
 `;
 
   // ---------- 圣诞树（拟物）----------
@@ -151,10 +142,6 @@
    var i;
    for(i=TIERS.length-1;i>=0;i--){var T=TIERS[i],tp=tierPath(T[0],T[1],T[2]);
     s+='<path d="'+tp+'" fill="url(#mt-lf)" stroke="#12301f" stroke-width="1.3" stroke-linejoin="round"/>'+needles(T[0],T[1],T[2],31+i*17)+'<path d="'+tp+'" fill="url(#mt-sh)"/><path d="'+snowPath(T[0],T[1],T[2])+'" fill="url(#mt-sn)" stroke="#b9c9e0" stroke-width=".7" stroke-linejoin="round"/>';}
-   var G=[[[66,72],[100,94],[134,72]],[[54,112],[100,138],[146,112]],[[40,160],[100,188],[160,160]]],cols=["#ff5a5a","#ffd25a","#6ad08a","#6fb2ff"],bi=0;
-   G.forEach(function(g,gi){s+='<path d="M'+g[0].join(" ")+'Q'+g[1].join(" ")+" "+g[2].join(" ")+'" fill="none" stroke="#5b4326" stroke-width="1.2"/>';
-    for(var k=1;k<=6;k++){var p=qpt(g[0],g[1],g[2],k/7),c=cols[bi++%4];
-     s+='<circle class="mt-lt" style="--d:-'+(bi*.37).toFixed(2)+'s" cx="'+f1(p[0])+'" cy="'+f1(p[1]+2)+'" r="4.4" fill="'+c+'" opacity=".35"/><circle class="mt-lt" style="--d:-'+(bi*.37).toFixed(2)+'s" cx="'+f1(p[0])+'" cy="'+f1(p[1]+2)+'" r="2" fill="'+c+'" stroke="#fff" stroke-opacity=".7" stroke-width=".5"/>';}});
    s+='<circle class="mt-lt" style="--d:-.4s" cx="100" cy="20" r="17" fill="url(#mt-gl)"/><g fill="url(#mt-st)" stroke="#b07a1e" stroke-width=".8" stroke-linejoin="round">'+star(100,18,11,4.7)+'</g>';
    for(i=0;i<Math.min(n,12);i++){var P=SPOTS[i],b=i%4;
     s+='<path d="M'+P[0]+' '+(P[1]-16)+'L'+P[0]+' '+(P[1]-8)+'" stroke="#c9a45c" stroke-width=".8"/><rect x="'+(P[0]-2.4)+'" y="'+(P[1]-9)+'" width="4.8" height="3.4" rx=".8" fill="#d9a63a" stroke="#8a5a1c" stroke-width=".5"/><circle cx="'+P[0]+'" cy="'+P[1]+'" r="7" fill="url(#mt-b'+b+')" stroke="rgba(0,0,0,.35)" stroke-width=".6"/><ellipse cx="'+(P[0]-2.4)+'" cy="'+(P[1]-2.8)+'" rx="2.2" ry="1.3" fill="#fff" opacity=".8" transform="rotate(-35 '+(P[0]-2.4)+' '+(P[1]-2.8)+')"/>';}
@@ -259,7 +246,7 @@
           var status = pl ? "正在写回信" : (l.reply ? (l.opened ? "已读" : "回信到了") : (ready ? "回信到了" : ctx.fmt(l.replyAt) + " 送达"));
           var label = l.reply ? (l.opened ? "再看看" : "拆信") : (ready ? "拆信" : "看看");
           var skip = (!l.reply && !ready && ctx.cfg.test) ? '<button class="link" data-act="mail.skip" data-id="' + e(l.id) + '">测试：提前送达</button>' : "";
-          return '<div class="lt"><span>给 ' + e(l.charName) + '<small>' + ctx.fmt(l.sentAt) + ' 寄出 · ' + status + '</small></span><span>' + skip + '<button class="btn sm" data-act="mail.desk" data-id="' + e(l.id) + '">' + label + '</button></span></div>';
+          return '<div class="lt"><span>给 ' + e(l.charName) + '<small>' + ctx.fmt(l.sentAt) + ' 寄出 · ' + status + '</small></span><span>' + skip + '<button class="btn sm" data-act="mail.desk" data-id="' + e(l.id) + '">' + label + '</button><button class="del" data-act="mail.ldel" data-id="' + e(l.id) + '" aria-label="删除这封信">×</button></span></div>';
         }).join("");
       }
 
@@ -273,7 +260,7 @@
           '<div class="env-letter"' + (opened && !animating ? ' data-act="mail.read" data-k="reply"' : "") + '></div>' +
           '<div class="env-front"><i class="fl"></i><i class="fr"></i><i class="fb"></i></div>' +
           '<div class="env-addr">致 ' + e(ctx.userName()) + '</div><div class="env-stp">★</div>' +
-          '<div class="env-flap"><i></i><i></i></div><div class="env-seal"><i></i><i></i></div></div>';
+          '<div class="env-flap"></div><div class="env-seal">★</div></div>';
         var im = imgs[l.id], pcd = "";
         var ar = arOf(l), pw = ar >= 1 ? 158 : Math.round(140 * ar) + 10, ph = ar >= 1 ? Math.round(148 / ar) + 10 : 150;
         if (!im) { pw = 158; ph = 106; }
@@ -302,7 +289,7 @@
       }
 
       // ---------- 动作 ----------
-      // 开信封分镜：封蜡裂开 → 封口翻开 → 信纸升起 → 举到面前 → 展开成读信纸
+      // 开信封分镜：封口沿折痕翻下去 → 抽出信纸 → 举到面前 → 展开成读信纸
       function playOpen(l) {
         if (reduced()) { l.opened = true; saveLetters(); ov = { k: "reply" }; ctx.render(); return; }
         anim = l.id; ctx.render();
@@ -310,7 +297,7 @@
           var el = ctx.view.querySelector(".env-letter"), r = el ? el.getBoundingClientRect() : null;
           anim = null; l.opened = true; saveLetters();
           if (open === l.id) { ov = { k: "reply" }; ovFrom = r; ctx.render(); flipIn(); }
-        }, 2100);
+        }, 2450);
       }
       function genReply(l) {
         var ch = ctx.charById(l.charId) || ctx.curChar();
@@ -425,6 +412,17 @@
             st.letters.push({ id: ctx.uid(), charId: c.id, charName: ctx.nm(c), text: lt, sentAt: Date.now(), replyAt: dd.getTime(), reply: null }); st.letterText = "";
             pv = { vers: [], vi: 0, fbOpen: false };
             await saveLetters(); roche.ui.toast("信已投进信箱"); return ctx.render();
+          }
+          if (name === "ldel") {
+            var Ld = letterById(id);
+            if (!Ld) return;
+            if (st.jobs["mail:letter:" + id]) return roche.ui.toast("正在写回信，等写完再删");
+            if (!(await roche.ui.confirm({ title: "删除这封信", message: "会删掉你寄出的信、圣诞老人的回信和明信片，删掉就找不回来了。确定吗？" }))) return;
+            st.letters.splice(st.letters.indexOf(Ld), 1); delete imgs[id];
+            try { await roche.storage.delete("pcimg:" + id); } catch (err) { /* 没有图就算了 */ }
+            await saveLetters();
+            if (open === id) { open = null; ov = null; anim = null; }
+            roche.ui.toast("已删除"); return ctx.render();
           }
           if (name === "skip") { st.letters.forEach(function (x) { if (x.id === id) x.replyAt = Date.now(); }); await saveLetters(); return ctx.render(); }
           // ----- 木桌 -----
