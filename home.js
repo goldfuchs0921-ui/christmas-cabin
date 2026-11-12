@@ -32,6 +32,7 @@
 .rcc .cd i{color:#b07a1e;font-style:normal;margin:0 6px}
 .rcc .card{position:relative;display:flex;align-items:center;gap:12px;width:100%;margin:0 0 16px;padding:12px 14px;text-align:left;border:0;border-radius:12px;color:var(--ink);background-color:var(--paper);background-image:var(--tex-paper,none);background-size:256px 256px;box-shadow:inset 0 0 28px rgba(120,76,24,.55),inset 0 0 2px rgba(70,36,8,.9),0 0 0 3px #5a3a20,0 0 0 4px rgba(255,214,150,.28),0 9px 14px rgba(0,0,0,.55)}
 .rcc .card:active{transform:translateY(1px)}
+.rcc.framed .card{border:14px solid transparent;border-image:var(--paper-frame) 32 fill/14px stretch;border-radius:0;padding:2px 4px;background:none;box-shadow:none;filter:drop-shadow(0 6px 7px rgba(0,0,0,.55))}
 .rcc .card .tx{flex:1;min-width:0}
 .rcc .card .en{display:block;font-size:27px;line-height:1.2;text-shadow:0 1px 0 rgba(255,255,255,.4)}
 .rcc .card .en em{font-style:normal;color:#b07a1e;font-size:15px;margin-left:6px}
