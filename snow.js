@@ -2,6 +2,7 @@
  * 画面素材 / 样式 / 音效在 snow-art.js（要和本文件一起上传，缺了雪仗打不开）
  * 台词：进入前一次性预生成并缓存（每个角色只花一次钱），游戏中按事件类型挑，所以台词和画面一定对得上
  * 形象：对手用角色头像，我方用你的人设头像；不用生图
+ * v1.9.1：傲娇重球(打中掉 2 滴血) / 各风格平衡微调 / 台词按局势筛选(最后一回合不再说「还不能输」) / 按风格生成台词 / 战绩以系统消息发到聊天
  * v1.7.0：台词生成抽成 R.gens.snow（和「一键生成」共用）
  * v1.5.2：重新准备台词加确认 / 战绩分享（右上角奖杯：战绩卡图片 + 可复制文字 + 可选角色评价）/ 拆出 snow-art.js / 清理旧代码
  * v1.5.1：球跟红圈变道 / 风格可视化 + 被打中反应 / 按角色战绩 + 清理页 / 删栅栏 / 画布自适应缩放 / 哔哔声去重
@@ -34,6 +35,7 @@
     callL: ["我要扔左边咯~"], callR: ["我要扔右边咯~"], shrug: ["哦？没感觉~", "就这？再来~"]
   };
   var STY_NAME = { tricky: "腹黑", tsun: "傲娇", gentle: "温柔", cool: "高冷", normal: "普通" };
+  var STY_DESC = { tricky: "腹黑狡诈，爱装无辜、设套、笑里藏刀", tsun: "傲娇，嘴硬心软、爱炸毛、不肯认输", gentle: "温柔笨拙，爱关心人、容易手滑、会不好意思", cool: "高冷寡言，每句只有一两个字，不爱解释", normal: "普通自然、友好" };
   var STY_ORDER = [null, "tricky", "tsun", "gentle", "cool", "normal"];
   var TIP = { tricky: "你匹配到了一个很腹黑的对手呢", tsun: "哇，你这次的对手很傲娇", gentle: "这位对手有点笨手笨脚，说不定会手滑", cool: "对手话不多，但出手很准，小心" };
   var VOICE = [1, 1.122, 1.26, 1.5, 1.68, 2], VOICE_HI = [1.5, 1.68, 2, 2.24], TONEW = /[啊呀吧呢哦嘛啦哇哼嗯哎诶咦喂嘿呐]/;
@@ -53,10 +55,10 @@
     id: "snow", scope: "char", label: "雪仗台词", desc: "每个角色的台词和风格",
     jobKey: function (c) { return "snow:" + c.id; },
     has: function (ctx, c) { return !!(ctx.st.d.snowLines && ctx.st.d.snowLines[c.id]); },
-    prompt: function (ctx, c) {
+    prompt: function (ctx, c, forced) {
       var keys = '"style":"normal",' + Object.keys(EV).map(function (k) { return '"' + k + '":["台词","台词","台词"]'; }).join(","), un = ctx.userName();
       return "你正在和" + un + "打一场友好的雪仗。以下台词全部是你（角色本人）说给对方听的，注意视角：「你」指你自己，「对方」指" + un + "。" +
-        "请先根据你的人设判断自己在雪仗里的风格，写进 style，只能是这五个之一：tricky（腹黑狡诈）、tsun（傲娇）、gentle（温柔笨拙）、cool（高冷寡言）、normal（普通）。" +
+        (forced ? "你在雪仗里的风格已经确定为 " + forced + "（" + STY_NAME[forced] + "：" + STY_DESC[forced] + "），style 必须写 " + forced + "，所有台词都要明显体现这个风格，同时保留你自己的人设口吻。" : "请先根据你的人设判断自己在雪仗里的风格，写进 style，只能是这五个之一：tricky（腹黑狡诈）、tsun（傲娇）、gentle（温柔笨拙）、cool（高冷寡言）、normal（普通）。") +
         "再写你在雪仗里的短台词，只输出 JSON：{" + keys + "}。各键含义：" + Object.keys(EV).map(function (k) { return k + "=" + EV[k]; }).join("；") +
         "。每个键 3 条，每条不超过 15 个字，符合你的性格和风格，要有感情、有趣、像真人；被打中（gotHit）要体现风格：tsun 反应夸张炸毛，cool 几乎没反应（一两个字），gentle 慌乱又关心对方；cool 风格话少，但每个键都必须有台词；" +
         "wild、annoy 只有 tsun 风格才写，slip 只有 gentle 风格才写，callL、callR、shrug 只有 tricky 风格才写，其他风格这几个键给空数组 []；" +
@@ -101,9 +103,9 @@
       function el(sel) { return ctx.view.querySelector(sel); }
       function say(ev) {
         var g = game, L = (g.c && lines(g.c)) || {}, pick = ev, oppEv = ev === "dodge" || ev === "hit" || ev === "gotHit" || ev === "miss";
-        if (oppEv && g.hp.opp === 1 && rnd() < 0.7) pick = "panic";                                      // 只剩 1 颗心：慌张拼命
-        else if ((ev === "hit" || ev === "dodge") && g.hp.me <= 2 && rnd() < 0.6) pick = "taunt";        // 你的心不多了：调侃
-        else if (ev === "gotHit" && g.style === "tricky" && rnd() < 0.7) pick = "shrug";                // 腹黑：被打中装作没事
+        if (oppEv && g.hp.opp === 1 && g.round < MAX_ROUND && rnd() < 0.7) pick = "panic";                                      // 只剩 1 颗心：慌张拼命
+        else if ((ev === "hit" || ev === "dodge") && g.hp.me <= 2 && g.hp.opp > g.hp.me && rnd() < 0.6) pick = "taunt";        // 你的心不多了：调侃
+        else if (ev === "gotHit" && g.style === "tricky" && g.hp.opp > 1 && rnd() < 0.7) pick = "shrug";                // 腹黑：被打中装作没事
         else if (ev === "start" && rec(g.c).last === "win") pick = "startWon";                          // 你上局赢了：不服气
         var arr = (L[pick] && L[pick].length) ? L[pick] : (DEF[pick] || DEF[ev]);
         g.bubble = String(arr[Math.floor(rnd() * arr.length)]).slice(0, 24);
@@ -236,8 +238,8 @@
       function ballHtml() {
         var b = game.ball, down = b.by === "opp", y0 = down ? Y.oppBall : Y.meBall;
         return '<div class="bsh" style="left:' + LANE[b.lane] + '%;top:' + (y0 + 12) + 'px;transition:left .18s"></div>' +
-          '<div class="ball ' + (down ? "o" : "m") + '" style="left:' + LANE[b.lane] + '%;top:' + y0 + 'px;transition:left .18s"></div>' +
-          (down && !b.wild ? '<div class="mark" style="left:' + LANE[b.lane] + '%;top:' + Y.mark + 'px"></div>' : "");
+          '<div class="ball ' + (down ? "o" : "m") + (b.heavy ? " heavy" : "") + '" style="left:' + LANE[b.lane] + '%;top:' + y0 + 'px;transition:left .18s"></div>' +
+          (down && !b.wild ? '<div class="mark' + (b.heavy ? " heavy" : "") + '" style="left:' + LANE[b.lane] + '%;top:' + Y.mark + 'px"></div>' : "");
       }
       function spawnBall() { var ar = el(".arena"); if (ar && game.ball) ar.insertAdjacentHTML("beforeend", ballHtml()); }
 
@@ -264,7 +266,7 @@
         var bl = game.ball, wd = down && bl ? bl.wild : null, x0 = bl ? LANE[bl.lane] : 50, x1 = bl && bl.lane ? 96 : 4;
         var sty = down ? game.style : "normal", hmp = 70, spin = 360, sc = 0.65, sway = 0, warp = 0, ease = down ? "cubic-bezier(.35,0,.85,.7)" : "cubic-bezier(.1,.4,.5,1)";
         if (wd === "wild") { hmp = 40; spin = 1080; ease = "cubic-bezier(.2,.2,.9,.8)"; }              // 傲娇急眼：又快又歪、疯狂旋转
-        else if (wd === "slip") { hmp = 125; spin = 180; ease = "ease-in-out"; }                        // 手滑：高高飘出去
+        else if (wd === "slip") { hmp = 125; spin = 180; ease = "ease-in-out"; } else if (bl && bl.heavy) { hmp = 25; spin = 1440; sc = 0.4; ease = "cubic-bezier(.2,.2,.9,.8)"; }                        // 手滑：高高飘出去
         else if (sty === "tricky") { sway = 11; warp = 0.1; }                                           // 腹黑：左右摇摆、半空犹豫
         else if (sty === "cool") { hmp = 8; sc = 0.25; spin = 90; ease = "linear"; }                   // 高冷：笔直
         else if (sty === "gentle") { hmp = 105; sway = 6; spin = 180; ease = "ease-in-out"; }           // 温柔：慢慢飘
@@ -327,21 +329,21 @@
         later(throwOpp, ct);
       }
       function throwOpp() {
-        var sty = game.style, r = game.round, D = dur(), wild = null, lane = rnd() < 0.5 ? 0 : 1, pr, pf, real, fake, rx = game.react;
+        var sty = game.style, r = game.round, D = dur(), wild = null, rage = false, heavy = false, lane = rnd() < 0.5 ? 0 : 1, pr, pf, real, fake, rx = game.react;
         game.react = false; game.angry = false;
-        pr = r >= 3 ? 0.45 : (r === 2 ? 0.2 : 0); pf = r >= 3 ? Math.min(0.45, 0.15 * (r - 2)) : 0;
+        pr = r >= 3 ? 0.5 : (r === 2 ? 0.25 : 0); pf = r >= 3 ? Math.min(0.45, 0.15 * (r - 2)) : 0;
         if (sty === "tricky") { pr = r >= 3 ? 0.6 : (r === 2 ? 0.5 : 0.3); pf = 0.5; if (rx) { pr = Math.min(0.85, pr + 0.25); pf = 0.7; } }     // 腹黑：被打中后假装没事，下一球变招更勤
         else if (sty === "cool") { pr = rx ? 0.95 : (r >= 3 ? 0.75 : (r === 2 ? 0.7 : 0.6)); pf = 0; D = Math.round(D * (rx ? 0.8 : 0.88)); }       // 高冷：几乎没反应，但下一球几乎必变招且更快
         else if (sty === "tsun") { pr *= 0.5; pf = 0; }
-        else if (sty === "gentle") D = Math.round(D * 1.1);
-        if (sty === "tsun" && (game.streak >= 2 || rx)) { wild = "wild"; D = Math.round(dur() * 0.45); game.streak = 0; }                 // 傲娇：连躲两次或被打中，下一球必是又快又歪的急眼球
+        else if (sty === "gentle") D = Math.round(D * 0.95);
+        if (sty === "tsun" && (game.streak >= 2 || rx)) { rage = true; game.streak = 0; if (rnd() < 0.35) { wild = "wild"; D = Math.round(dur() * 0.45); } else { D = Math.round(dur() * 0.6); heavy = rnd() < 0.4; } }                 // 傲娇：连躲两次或被打中，下一球必是又快又歪的急眼球
         else if (sty === "gentle" && rnd() < (rx ? 0.3 : (r === 1 ? 0.1 : 0.06))) { wild = "slip"; D = Math.round(dur() * 1.2); }              // 温柔：手滑，被打中后更慌所以更容易手滑
         if (game.call != null && !wild) lane = rnd() < 0.5 ? game.call : 1 - game.call;
-        real = !wild && rnd() < pr; fake = !wild && !real && rnd() < pf;
+        real = !wild && !rage && rnd() < pr; fake = !wild && !rage && !real && rnd() < pf;
         var oc = el(".char.o"); if (oc) oc.classList.remove("fume");
         game.phase = "defend"; game.bubble = ""; finishTyping();
         var bb0 = el(".bubble"); if (bb0) bb0.remove();                  // 球飞的时候对手不说话
-        game.ball = { by: "opp", lane: lane, dur: D, wild: wild };
+        game.ball = { by: "opp", lane: lane, dur: D, wild: wild, heavy: heavy };
         setPose("o", "throw", 0); spawnBall();
         later(function () { fly("opp", D); snd("throwBall", "opp", D); }, 30);
         var tg = 1 - game.ball.lane;
@@ -364,7 +366,7 @@
       function resolveDefend() {
         var b = game.ball, bl = b.lane, hit = !b.wild && game.lane.me === bl;
         game.phase = "after"; game.ball = null; game.splat = null; game.lost = null; game.fxo = null; game.pose = null; game.locked = false;
-        if (hit) { game.hp.me--; game.fx = "me"; game.lost = "me"; game.streak = 0; say("hit"); snd("hit"); duck(); later(function () { snd("heart"); }, 170); }
+        if (hit) { var d0 = b.heavy ? 2 : 1, was = game.hp.me; game.hp.me = Math.max(0, was - d0); game.lostN = was - game.hp.me; game.fx = "me"; game.lost = "me"; game.streak = 0; say("hit"); snd("hit"); duck(); later(function () { snd("heart"); }, 170); }
         else {
           game.splat = { x: b.wild ? (bl ? 94 : 6) : LANE[bl], y: Y.meHit + 34 };
           if (b.wild) say(b.wild); else { game.streak++; say(game.streak >= 2 && game.style === "tsun" ? "annoy" : "dodge"); }
@@ -389,7 +391,7 @@
       function aim(l) {
         game.aim = l; game.phase = "flight"; game.tell = null;
         // 你瞄准后，对手有概率反应过来躲到你瞄的反方向，越到后面概率越高
-        var p = Math.min(0.6, 0.08 + 0.07 * (game.round - 1)), reacted = rnd() < p;
+        var p = Math.min(0.5, 0.08 + 0.07 * (game.round - 1)), reacted = rnd() < p;
         if (reacted) game.F = 1 - l;
         game.pose = { side: "m", mode: "throw", ct: 0 };
         game.ball = { by: "me", lane: l, dur: 700 }; ctx.render();
@@ -405,7 +407,7 @@
       function resolveAttack() {
         var hit = game.aim === game.F;
         game.phase = "after"; game.ball = null; game.splat = null; game.lost = null; game.fxo = null; game.pose = null;
-        if (hit) { game.hp.opp--; game.fx = game.style === "cool" ? null : "opp"; game.lost = "opp"; game.react = true; say("gotHit"); snd("hit"); duck(); later(function () { snd("heart"); }, 170); }
+        if (hit) { game.hp.opp--; game.fx = game.style === "cool" ? null : "opp"; game.lost = "opp"; game.lostN = 1; game.react = true; say("gotHit"); snd("hit"); duck(); later(function () { snd("heart"); }, 170); }
         else { game.splat = { x: LANE[game.aim], y: Y.oppHit + 4 }; say("miss"); snd("land"); hitDeco("back", game.aim); }
         show();
         later(function () {
@@ -458,7 +460,7 @@
       function arenaHtml() {
         var g = game, c = g.c, ph = g.phase, u = st.user || {};
         var turn = g.turn === "defend" ? "我方防守" : (g.turn === "attack" ? "我方进攻" : "准备");
-        var hearts = function (n, side) { var s = ""; for (var i = 0; i < 5; i++) s += (g.lost === side && i === n) ? brokenHeart() : heart(i < n); return s; };
+        var hearts = function (n, side) { var s = ""; for (var i = 0; i < 5; i++) s += (g.lost === side && i >= n && i < n + (g.lostN || 1)) ? brokenHeart() : heart(i < n); return s; };
         var h = '<div class="aw" style="--s:' + fitScale() + '"><div class="ab"><div class="arena">' + DEFS + '<div class="hill"></div>' + decoHtml() + '<div class="rb">第 ' + g.round + '/' + MAX_ROUND + ' 回合 · ' + turn + '</div>' +
           '<div class="hp o">' + e(ctx.nm(c)) + ' ' + hearts(g.hp.opp, "opp") + '</div>' +
           '<div class="mound o" style="left:' + LANE[g.lane.opp] + '%;top:128px"></div>' + charHtml("o", c.avatar, ctx.nm(c)) +
@@ -499,6 +501,16 @@
           '<div class="center"><button class="btn" data-act="snow.ok">' + (go ? "明白了，开战" : "知道了") + '</button></div>';
       }
       // ---------- 战绩分享：战绩卡图片 + 文字 + 可选角色评价（只在插件里生成，不写进 Roche 主记忆）----------
+      // 把文字以「系统消息」发进这个角色的聊天：依次尝试 Roche 可能提供的接口，哪个能用用哪个
+      async function sendSystem(c, text) {
+        var apis = [roche.chat, window.Roche && window.Roche.chat].filter(Boolean), names = ["sendSystemMessage", "sendMessage", "appendMessage", "addMessage", "postMessage"], a, n;
+        for (a = 0; a < apis.length; a++) for (n = 0; n < names.length; n++) {
+          var fn = apis[a][names[n]];
+          if (typeof fn !== "function") continue;
+          try { await fn.call(apis[a], { conversationId: c.conversationId, role: "system", type: "system", sender: "system", senderName: "系统", text: text, content: text }); return { ok: true, how: names[n] }; } catch (err) { /* 换下一个接口 */ }
+        }
+        return { ok: false };
+      }
       function styleOf(c) { var S = (c && st.d.snowStyle && st.d.snowStyle[c.id]) || {}; return S.manual || S.auto || "normal"; }
       function rateOf(r) { var n = r.win + r.lose + r.draw; return n ? Math.round(r.win / n * 100) : 0; }
       function evalOf(c) { var x = c && st.d.snowEval && st.d.snowEval[c.id]; return (x && x.text) || ""; }
@@ -603,6 +615,7 @@
         h += '<p class="hint">' + (n ? "战绩卡会按当前战绩自动绘制，可以保存成图片，或复制文字发到聊天里。" : "还没有战绩，先去打一局吧。") + '</p>' +
           '<div class="center">' + (share.img ? '<img class="cardimg" src="' + share.img + '" alt="战绩卡">' : ctx.wait("正在绘制战绩卡…")) + '</div>' +
           '<div class="two"><button class="btn" data-act="snow.saveImg"' + (share.img ? "" : " disabled") + '>保存 / 分享图片</button><button class="btn" data-act="snow.copyTxt">复制文字</button></div>' +
+          '<div class="center" style="margin:10px 0 0"><button class="btn" data-act="snow.toChat">以系统消息发到聊天</button></div>' +
           '<p class="hint" style="text-align:center">手机上也可以长按图片直接保存。</p>' +
           '<div class="evbox"><b>角色评价（可选）</b><small>调用一次模型，让 ' + e(ctx.nm(c)) + ' 用自己的口吻点评这份战绩，会写进战绩卡和文字里。</small>';
         if (pe) h += ctx.wait("TA 正在写评价，你可以先去别处逛逛");
@@ -634,7 +647,7 @@
           '<div class="vs-btns"><button class="btn big" data-act="snow.go"' + (c ? "" : " disabled") + '>开 战</button>' +
           '<div class="vs-sub"><button class="btn ghost sm" data-act="snow.rules">玩法说明</button>' +
           '<button class="btn ghost sm" data-act="snow.lines"' + (pend ? " disabled" : "") + '>' + (pend ? "准备中" : (L ? "重新准备台词" : "准备台词")) + '</button>' +
-          '<button class="btn ghost sm" data-act="snow.clean">清理数据</button></div>' +
+          '<button class="btn ghost sm" data-act="snow.stylelines"' + (pend || !c ? " disabled" : "") + '>按风格生成台词</button><button class="btn ghost sm" data-act="snow.clean">清理数据</button></div>' +
           '<p class="vs-note">' + note + '</p></div>' +
           '<div class="vol"><label><span>音乐</span><input type="range" min="0" max="100" step="5" value="' + musicVol() + '" data-vol="music"' + (R.duck ? "" : " disabled") + '><em>' + musicVol() + '%</em></label>' +
           '<label><span>音效</span><input type="range" min="0" max="100" step="5" value="' + sfxVol() + '" data-vol="sfx"><em>' + sfxVol() + '%</em></label>' +
@@ -730,6 +743,33 @@
             var ST = st.d.snowStyle = st.d.snowStyle || {}, S2 = ST[c.id] = ST[c.id] || {};
             S2.manual = STY_ORDER[(STY_ORDER.indexOf(S2.manual || null) + 1) % STY_ORDER.length];
             ctx.save(); return ctx.render();
+          }
+          if (name === "stylelines") {
+            if (!c) return roche.ui.toast("请先选一个角色");
+            var fs = styleOf(c);
+            if (!(await roche.ui.confirm({ title: "按风格生成台词", message: "会调用一次模型，按当前风格「" + STY_NAME[fs] + "」重新写一套台词，现有台词会被替换。想换风格请先点「对手风格」切换。确定吗？" }))) return;
+            ctx.job("snow:" + c.id, "snow", "雪仗台词", async function () {
+              lineMsg = "正在按「" + STY_NAME[fs] + "」风格写台词…"; ctx.render();
+              var l2 = await ctx.context(c);
+              G.apply(ctx, c, await ctx.ask(ctx.sysFor(c, l2), G.prompt(ctx, c, fs), true)); lineMsg = "";
+            });
+            return;
+          }
+          if (name === "toChat") {
+            if (!c) return roche.ui.toast("请先选一个角色");
+            var rr = rec(c);
+            if (rr.win + rr.lose + rr.draw === 0) return roche.ui.toast("还没有战绩，先打一局吧");
+            if (!c.conversationId) return roche.ui.toast("这个角色没有单聊会话");
+            var body = "【系统记录 · 雪仗】以下内容由圣诞小屋的雪仗游戏自动记录，是 " + ctx.userName() + " 与 " + ctx.nm(c) + " 真实进行过的雪仗，并非虚构。\n" + shareText(c).replace(/^【雪仗战绩】/, "");
+            var sr = await sendSystem(c, body);
+            if (sr.ok) return roche.ui.toast("已发送到聊天（" + sr.how + "），请到聊天里确认显示的身份");
+            if (await roche.ui.confirm({ title: "没能发到聊天", message: "这个版本的 Roche 没有开放可用的发消息接口。要改成写入主记忆吗？（写入的是 Roche 主事实记忆，卸载插件不会自动删除）" })) {
+              try {
+                await roche.memory.write({ conversationId: c.conversationId, summaryText: body, who: [ctx.userName(), ctx.nm(c)], action: body, when: new Date().toLocaleString("zh-CN", { hour12: false }), where: "圣诞小屋·雪仗", source: "plugin" });
+                roche.ui.toast("已写入主记忆");
+              } catch (err) { roche.ui.toast("写入失败：" + (err && err.message || err)); }
+            }
+            return;
           }
           if (name === "lines") {
             if (!c) return roche.ui.toast("请先选一个角色");

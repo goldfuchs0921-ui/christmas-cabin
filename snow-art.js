@@ -366,6 +366,9 @@
 .rcc .evbox{margin-top:14px;padding-top:12px;border-top:1px dashed rgba(90,58,24,.45)}
 .rcc .evbox b{display:block;font-weight:600}
 .rcc .evbox small{display:block;color:var(--soft);font-size:12px;line-height:1.5;margin:2px 0 8px}
+.rcc .ball.o.heavy{background:radial-gradient(circle at 35% 30%,#fff,#ffd6d6 50%,#e05a5a);box-shadow:0 0 12px 4px rgba(255,70,70,.75),inset -2px -3px 4px rgba(150,40,40,.4)}
+.rcc .mark.heavy{background:rgba(200,30,30,.45);border-color:#d41f2f;animation:rcc-hv .35s ease-in-out infinite alternate}
+@keyframes rcc-hv{to{transform:translateX(-50%) scale(1.18)}}
 @media (prefers-reduced-motion:reduce){.rcc .bulb,.rcc .bulb u{animation:none}.rcc .char.fume .av2{animation:none}}
 `;
 

@@ -6,7 +6,7 @@
  */
 (function () {
   "use strict";
-  var VER = "1.9.0";
+  var VER = "1.9.1";
   var BASE = "https://raw.githubusercontent.com/goldfuchs0921-ui/christmas-cabin/main/";
   try {
     var cs = document.currentScript;
@@ -36,12 +36,14 @@
   function loadAll(onStep) {
     if (!loading) loading = (async function () {
       var done = 0;
-      await Promise.all(MODULES.map(function (name) {
-        return loadScript(BASE + name + ".js?v=" + VER).then(function (ok) {
-          R.status[name] = ok; done++;
-          if (onStep) onStep(done, MODULES.length, name);
-        });
-      }));
+      async function one(name) {
+        var url = BASE + name + ".js?v=" + VER, ok = await loadScript(url);
+        if (!ok) ok = await loadScript(url + "&r=1");   // 失败自动重试一次
+        R.status[name] = ok; done++;
+        if (onStep) onStep(done, MODULES.length, name);
+      }
+      await one("snow-art");   // snow.js 启动时就要用它，必须先加载完，否则会报「缺少 snow-art」
+      await Promise.all(MODULES.filter(function (n) { return n !== "snow-art"; }).map(one));
     })();
     return loading;
   }
