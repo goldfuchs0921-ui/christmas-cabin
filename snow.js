@@ -492,24 +492,32 @@
       }
       function rulesHtml() {
         var go = rules.c;
+        function li(n, t, d) { return '<li><i>' + n + '</i><span><b>' + t + '</b><small>' + d + '</small></span></li>'; }
         return '<ul class="rl">' +
-          '<li><i>1</i><span><b>胜负</b><small>每人 5 颗心，最多 ' + MAX_ROUND + ' 回合。先打光对方的心就赢；打满回合则心多的赢。</small></span></li>' +
-          '<li><i>2</i><span><b>谁在扔，看颜色</b><small>对手头像发出红光蓄力，就是它要扔了，你防守；你的头像发出蓝白光蓄力，轮到你进攻。红色的球是它的，蓝白的球是你的。</small></span></li>' +
-          '<li><i>3</i><span><b>我方防守</b><small>地上的红圈是落点，点按钮躲到另一边。球落地前的最后一刻，位置会锁定，要早点躲。越到后面它越爱变招：球在半空会突然换边，换之前头像会先偏一下，但后面它也会假装偏！</small></span></li>' +
-          '<li><i>4</i><span><b>我方进攻</b><small>等你蓄满，才能点左或右扔出去。对手会指一边说「↓ 打这边」，但不一定说真话。你扔出去之后，它有机会反应过来躲开，越到后面越会躲。</small></span></li>' +
-          '<li><i>5</i><span><b>被打中 / 打偏</b><small>被打中会碎掉一颗心。雪球扔偏了，会砸到后面的东西：树会抖，灯泡会晃，木牌、雪人会被砸歪。</small></span></li></ul>' +
+          li(1, "胜负", "每人 5 颗心，最多 " + MAX_ROUND + " 回合。先打光对方的心就赢；打满回合则心多的赢，一样多是平局，会解锁隐藏结局「握手言和」。") +
+          li(2, "谁在扔，看颜色", "对手头像发出光芒蓄力，就是它要扔了，你防守；你的头像发出蓝白光蓄力，轮到你进攻。红色的球是它的，蓝白的球是你的。") +
+          li(3, "我方防守", "地上的红圈是落点，点按钮躲到另一边。球落地前的最后一刻位置会锁定，要早点躲。越到后面它越爱变招：球在半空会突然换边，换之前头像会先偏一下，但它也会假装偏。") +
+          li(4, "我方进攻", "等你蓄满，才能点左或右扔出去。对手会指一边说「↓ 打这边」，大约七成是真的。你扔出去后它有机会反应过来躲开，越到后面越会躲（最高约五成）。") +
+          li(5, "被打中 / 打偏", "被打中碎掉一颗心。扔偏了会砸到后面的东西：树会抖，灯泡会晃，木牌、雪人会被砸歪。") +
+          li(6, "重球", "傲娇急眼时，可能丢出通体发红光的重球，落点红圈会一闪一闪。重球被打中会一次碎掉两颗心，看见红圈闪就一定要躲。") +
+          li(7, "对手风格（难度参考）", "头像角上的小圆章就是风格，也可以在首页点「对手风格」手动换。<br>" +
+            "温柔 ★　球慢，偶尔手滑扔偏，最好赢<br>" +
+            "普通 ★★　中规中矩，后期偶尔变招<br>" +
+            "腹黑 ★★★　爱喊假方向、爱变招，被你打中后变得更狡猾<br>" +
+            "傲娇 ★★★　连续被你躲开两次，或被你打中后会急眼，可能丢出重球，也可能气得乱扔<br>" +
+            "高冷 ★★★★　话少球快，几乎一直在变招，最难") +
+          li(8, "台词与战绩", "首页「准备台词」只花一次模型额度，之后永久缓存；「按风格生成台词」会按当前风格重写一套。右上角奖杯可以保存战绩卡，也能把战绩作为系统通知发进聊天，让 TA 知道你们真的打过。") +
+          li(9, "操作与暂停", "电脑上可以用 ← → 或 A / D 躲避、瞄准；切到别的页面会自动暂停，回来点「继续」。") +
+          '</ul>' +
           '<div class="center"><button class="btn" data-act="snow.ok">' + (go ? "明白了，开战" : "知道了") + '</button></div>';
       }
       // ---------- 战绩分享：战绩卡图片 + 文字 + 可选角色评价（只在插件里生成，不写进 Roche 主记忆）----------
       // 把文字以「系统消息」发进这个角色的聊天：依次尝试 Roche 可能提供的接口，哪个能用用哪个
       async function sendSystem(c, text) {
-        var apis = [roche.chat, window.Roche && window.Roche.chat].filter(Boolean), names = ["sendSystemMessage", "sendMessage", "appendMessage", "addMessage", "postMessage"], a, n;
-        for (a = 0; a < apis.length; a++) for (n = 0; n < names.length; n++) {
-          var fn = apis[a][names[n]];
-          if (typeof fn !== "function") continue;
-          try { await fn.call(apis[a], { conversationId: c.conversationId, role: "system", type: "system", sender: "system", senderName: "系统", text: text, content: text }); return { ok: true, how: names[n] }; } catch (err) { /* 换下一个接口 */ }
-        }
-        return { ok: false };
+        var api = roche.chat || (window.Roche && window.Roche.chat);
+        if (!api || typeof api.sendMessage !== "function") return { ok: false, err: "没有找到 roche.chat.sendMessage" };
+        try { await api.sendMessage({ conversationId: c.conversationId, text: text, kind: "system" }); return { ok: true }; }
+        catch (err) { return { ok: false, err: String(err && err.message || err) }; }
       }
       function styleOf(c) { var S = (c && st.d.snowStyle && st.d.snowStyle[c.id]) || {}; return S.manual || S.auto || "normal"; }
       function rateOf(r) { var n = r.win + r.lose + r.draw; return n ? Math.round(r.win / n * 100) : 0; }
@@ -762,8 +770,8 @@
             if (!c.conversationId) return roche.ui.toast("这个角色没有单聊会话");
             var body = "【系统记录 · 雪仗】以下内容由圣诞小屋的雪仗游戏自动记录，是 " + ctx.userName() + " 与 " + ctx.nm(c) + " 真实进行过的雪仗，并非虚构。\n" + shareText(c).replace(/^【雪仗战绩】/, "");
             var sr = await sendSystem(c, body);
-            if (sr.ok) return roche.ui.toast("已发送到聊天（" + sr.how + "），请到聊天里确认显示的身份");
-            if (await roche.ui.confirm({ title: "没能发到聊天", message: "这个版本的 Roche 没有开放可用的发消息接口。要改成写入主记忆吗？（写入的是 Roche 主事实记忆，卸载插件不会自动删除）" })) {
+            if (sr.ok) return roche.ui.toast("已作为系统通知发送到聊天");
+            if (await roche.ui.confirm({ title: "没能发到聊天", message: "系统通知没发成功（" + (sr.err || "未知原因") + "）。要改成写入主记忆吗？（写入的是 Roche 主事实记忆，卸载插件不会自动删除）" })) {
               try {
                 await roche.memory.write({ conversationId: c.conversationId, summaryText: body, who: [ctx.userName(), ctx.nm(c)], action: body, when: new Date().toLocaleString("zh-CN", { hour12: false }), where: "圣诞小屋·雪仗", source: "plugin" });
                 roche.ui.toast("已写入主记忆");
