@@ -23,7 +23,7 @@
     prompt: function (ctx, c) {
       return "现在是圣诞节前夕，你扮演圣诞老人，为对方出具一份「年度好孩子鉴定报告」。只输出 JSON：" +
         '{"title":"英文或中英混合的报告标题，简短","items":[{"label":"评分项，共4项，有趣且贴合对方的喜好，不要负面","stars":1到5的整数，按实际情况打，可以满分也可以有低有高，低分项也要有趣可爱不伤人}],"verdict":"总评，60-100字，用你的口吻","note":"一句悄悄话，20字内"}';
-
+    }
     apply: function (ctx, c, k) {
       if (!k || !k.items || !k.items.length) throw new Error("报告内容不完整，再试一次");
       k.title = k.title || "Good Kid Report"; k.who = ctx.nm(c); k.year = new Date().getFullYear();
