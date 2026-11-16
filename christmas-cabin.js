@@ -301,7 +301,11 @@
           if (html == null) html = '<div class="pg"><div class="sheet"><p>这个页面出错了（模块：' + esc(st.view) + '）。<br>' +
             '文件加载情况：' + Object.keys(R.status).map(function (k) { return (R.status[k] ? "✓" : "✗") + k; }).join(" ") + '<br>' +
             esc(st.errs.slice(-2).join("；")) + '</p><div class="center"><button class="btn" data-act="core.go" data-v="home">回主页</button></div></div></div>';
-          view.innerHTML = html;
+          var same = view.dataset.v === st.view, y0 = view.scrollTop, ch0 = view.querySelector(".chips"), x0 = ch0 ? ch0.scrollLeft : 0;
+view.dataset.v = st.view;
+view.innerHTML = html;
+if (same) { view.scrollTop = y0; var ch1 = view.querySelector(".chips"); if (ch1) ch1.scrollLeft = x0; }
+
           st.anim = null;
         }
         function go(v) { st.view = v; st.d.ready[v] = false; save(); render(); view.scrollTop = 0; }
