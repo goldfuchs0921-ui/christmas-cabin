@@ -86,7 +86,7 @@
   window.RochePlugin.register({
     id: "christmas-cabin", name: "圣诞小屋", version: VER,
     apps: [{
-      id: "christmas-cabin-home", name: "圣诞小屋", icon: "redeem", iconImage: "",
+      id: "christmas-cabin-home", name: "圣诞小屋", icon: "cabin", iconImage: "",
 
       async mount(container, roche) {
         var boot = showBoot(container);
