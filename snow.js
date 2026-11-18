@@ -2,20 +2,11 @@
  * 画面素材 / 样式 / 音效在 snow-art.js（要和本文件一起上传，缺了雪仗打不开）
  * 台词：进入前一次性预生成并缓存（每个角色只花一次钱），游戏中按事件类型挑，所以台词和画面一定对得上
  * 形象：对手用角色头像，我方用你的人设头像；不用生图
- * v1.9.1：傲娇重球(打中掉 2 滴血) / 各风格平衡微调 / 台词按局势筛选(最后一回合不再说「还不能输」) / 按风格生成台词 / 战绩以系统消息发到聊天
- * v1.7.0：台词生成抽成 R.gens.snow（和「一键生成」共用）
- * v1.5.2：重新准备台词加确认 / 战绩分享（右上角奖杯：战绩卡图片 + 可复制文字 + 可选角色评价）/ 拆出 snow-art.js / 清理旧代码
- * v1.5.1：球跟红圈变道 / 风格可视化 + 被打中反应 / 按角色战绩 + 清理页 / 删栅栏 / 画布自适应缩放 / 哔哔声去重
- * v1.5.0：台词系统 + 哔哔声 + 四种角色风格 + 握手言和 + 开局提示 + 方向键 A/D + 切后台即暂停 */
+ */
 (function () {
   "use strict";
   var R = window.RCC;
   var A = R.snowArt;
-  if (!A) {   // snow-art.js 没上传或没加载到：给出提示，不让整个小屋报错
-    R.add({ id: "snow", style: "", home: { order: 6, en: "Snowball Fight", zh: "雪 仗", desc: "缺少 snow-art.js", icon: "snow", svg: "" },
-      create: function (ctx) { return { view: function () { return ctx.page("Snowball Fight", "雪 仗", '<p class="hint">缺少 snow-art.js。请把它和 snow.js 一起放到仓库最外层，并确认 christmas-cabin.js 是最新版。</p>'); } }; } });
-    return;
-  }
   var heart = A.heart, brokenHeart = A.brokenHeart, splatHtml = A.splatHtml, DEFS = A.DEFS, ART = A.ART, lightsHtml = A.lightsHtml, drops = A.drops, AURA = A.AURA, SFX = A.SFX;
   var LANE = [27, 73];                 // 左右两条路的横向位置（%）
   var MAX_ROUND = 8;
@@ -621,7 +612,7 @@
         var sig = [c.id, r.win, r.lose, r.draw, r.last, r.truce, styleOf(c), ev, (st.user && st.user.avatar || "").length, (c.avatar || "").length].join("|");
         if (share.sig !== sig && !share.building) buildCard(c, sig);
         h += '<p class="hint">' + (n ? "战绩卡会按当前战绩自动绘制，可以保存成图片，或复制文字发到聊天里。" : "还没有战绩，先去打一局吧。") + '</p>' +
-          '<div class="center">' + (share.img ? '<img class="cardimg" src="' + share.img + '" alt="战绩卡">' : ctx.wait("正在绘制战绩卡…")) + '</div>' +
+          '<div class="center">' + (share.img ? '<img class="cardimg" src="' + share.img + '" alt="战绩卡">' : (share.err ? '<p class="hint">战绩卡绘制失败：' + e(share.err) + '</p>' : ctx.wait("正在绘制战绩卡…"))) + '</div>' +
           '<div class="two"><button class="btn" data-act="snow.saveImg"' + (share.img ? "" : " disabled") + '>保存 / 分享图片</button><button class="btn" data-act="snow.copyTxt">复制文字</button></div>' +
           '<div class="center" style="margin:10px 0 0"><button class="btn" data-act="snow.toChat">以系统消息发到聊天</button></div>' +
           '<p class="hint" style="text-align:center">手机上也可以长按图片直接保存。</p>' +
@@ -659,7 +650,7 @@
           '<p class="vs-note">' + note + '</p></div>' +
           '<div class="vol"><label><span>音乐</span><input type="range" min="0" max="100" step="5" value="' + musicVol() + '" data-vol="music"' + (R.duck ? "" : " disabled") + '><em>' + musicVol() + '%</em></label>' +
           '<label><span>音效</span><input type="range" min="0" max="100" step="5" value="' + sfxVol() + '" data-vol="sfx"><em>' + sfxVol() + '%</em></label>' +
-          (R.duck ? "" : '<small>音乐音量还没接上唱片机（需要在 record.js 加一行，见更新说明）</small>') + '</div></div></div>';
+          '</div></div></div>';
         return h;
       }
 

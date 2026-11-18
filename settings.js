@@ -1,4 +1,4 @@
-/* settings.js — 设置页 v1.9.2
+/* settings.js — 设置页 v1.9.3
  * 一级页面只有几行分类，每行下面一句话写着当前状态；点进去才是具体开关，最多两层，不用翻找
  * 「数据管理」= 原来的「存储与图片」+「数据管理」：顶部分区内存条（只统计圣诞小屋自己的存储）+ 分区清除 + 压缩图片
  * 以后新增设置：在 main() 里加一行，再给它做一个小页面即可 */
@@ -12,10 +12,6 @@
 .rcc .set{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid rgba(90,58,24,.25)}
 .rcc .set b{display:block;font-weight:600}
 .rcc .set small{display:block;color:var(--soft);font-size:12px;line-height:1.5}
-.rcc .sw{flex:0 0 auto;position:relative;width:54px;height:30px;border-radius:999px;border:0;padding:0;background:#6b4a2a;box-shadow:inset 0 3px 6px rgba(0,0,0,.55),0 1px 0 rgba(255,255,255,.5)}
-.rcc .sw i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#fff1b8,#e3b341 40%,#a8741c 75%,#6e4710);box-shadow:inset 0 1px 1px rgba(255,255,255,.7),0 2px 3px rgba(0,0,0,.6);transition:transform .2s}
-.rcc .sw.on{background:#4f7a4a}
-.rcc .sw.on i{transform:translateX(24px)}
 .rcc .step{display:flex;align-items:center;gap:10px}
 .rcc .step .gbtn{width:30px;height:30px;font-size:18px}
 .rcc .step span{min-width:26px;text-align:center;font-weight:600}
@@ -52,14 +48,14 @@
     id: "settings", style: CSS,
     create: function (ctx) {
       var cfg = ctx.cfg, roche = ctx.roche, st = ctx.st, sub = null, info = null, sbusy = false, smsg = "";
-      function mb(n) { return R.img ? R.img.fmt(n) : Math.max(1, Math.round(n / 1024)) + " KB"; }
+      function mb(n) { return R.img.fmt(n); }
       function safeDel(k) { return Promise.resolve().then(function () { return roche.storage.delete(k); }).catch(function () { /* 没有就算了 */ }); }
       function delGiftImgs() { return Promise.all(st.chars.map(function (c) { return safeDel("giftimg:" + c.id); })); }
       function delCardImgs() { return Promise.all((st.letters || []).map(function (l) { return safeDel("pcimg:" + l.id); })); }
-      // 图片：礼物图（旧版直接存在主数据里的也算）和明信片图
+      // 图片：礼物图和明信片图
       function imgTasks() {
         var out = [], gm = st.d.gift || {}, k;
-        for (k in gm) { var g = gm[k] && gm[k].cur; if (g && (g.img || g.hasImg)) out.push({ kind: "gift", id: k, g: g }); }
+        for (k in gm) { var g = gm[k] && gm[k].cur; if (g && g.hasImg) out.push({ kind: "gift", id: k, g: g }); }
         (st.letters || []).forEach(function (l) { if (l.pc && l.pc.img) out.push({ kind: "card", id: l.id, l: l }); });
         return out;
       }
@@ -68,13 +64,13 @@
       async function scan() {
         var o = { gi: 0, gb: 0, pi: 0, pb: 0, an: 0, ab: 0, tb: 0, lb: 0 }, tasks = imgTasks(), i, ks = ["wb", "pre", "rgx"];
         for (i = 0; i < tasks.length; i++) {
-          var t = tasks[i], s = t.kind === "gift" ? (t.g.img || await roche.storage.get("giftimg:" + t.id)) : await roche.storage.get("pcimg:" + t.id);
+          var t = tasks[i], s = await roche.storage.get((t.kind === "gift" ? "giftimg:" : "pcimg:") + t.id);
           if (!s) continue;
           if (t.kind === "gift") { o.gi++; o.gb += s.length; } else { o.pi++; o.pb += s.length; }
         }
         var idx = (await roche.storage.get("recIndex")) || [];
         idx.forEach(function (x) { o.an++; o.ab += Math.round((x.size || 0) * 1.34); });
-        var txt = JSON.stringify(st.d, function (k, v) { return k === "img" && typeof v === "string" && v.length > 1000 ? undefined : v; }).length;
+        var txt = JSON.stringify(st.d).length;
         o.tb = txt + lenOf(st.letters) + lenOf(st.wishes) + lenOf(st.wishReply) + lenOf(await roche.storage.get("memLog")) + lenOf(await roche.storage.get("memCfg"));
         for (i = 0; i < ks.length; i++) o.lb += lenOf(await roche.storage.get(ks[i]));
         info = o;
@@ -86,22 +82,19 @@
         sbusy = false; smsg = ""; ctx.render();
       }
       async function compressAll() {
-        if (!R.img) return roche.ui.toast("缺少图片压缩模块，请更新 theme.js");
-        var tasks = imgTasks(), saved = 0, i, needSave = false, needLetters = false;
+        var tasks = imgTasks(), saved = 0, i, needLetters = false;
         sbusy = true;
         for (i = 0; i < tasks.length; i++) {
           var t = tasks[i], key = (t.kind === "gift" ? "giftimg:" : "pcimg:") + t.id;
           smsg = "正在压缩（" + (i + 1) + "/" + tasks.length + "）…"; ctx.render();
           try {
-            var inline = t.kind === "gift" && !!t.g.img, cur = inline ? t.g.img : await roche.storage.get(key);
+            var cur = await roche.storage.get(key);
             if (!cur) continue;
             var pr = await R.img.prepare(cur, 1024);
-            if (pr.src.length < cur.length || inline) { await roche.storage.set(key, pr.src); if (pr.src.length < cur.length) saved += cur.length - pr.src.length; }
-            if (inline) { t.g.hasImg = true; delete t.g.img; needSave = true; }
+            if (pr.src.length < cur.length) { await roche.storage.set(key, pr.src); saved += cur.length - pr.src.length; }
             if (t.kind === "card" && pr.ar) { t.l.pc.ar = pr.ar; needLetters = true; }
           } catch (err) { /* 这一张处理不了就跳过 */ }
         }
-        if (needSave) await ctx.save();
         if (needLetters) await roche.storage.set("letters", st.letters);
         try { await scan(); } catch (err2) { /* 忽略 */ }
         sbusy = false; smsg = "";
@@ -228,7 +221,7 @@
             if (w === "gift") return clearKeys("清除礼物图", "所有礼物图会删除，礼物本身（名字和理由）保留。确定吗？", async function () {
               await delGiftImgs();
               var gm = st.d.gift || {}, k2;
-              for (k2 in gm) { if (gm[k2] && gm[k2].cur) { delete gm[k2].cur.hasImg; delete gm[k2].cur.img; } }
+              for (k2 in gm) { if (gm[k2] && gm[k2].cur) { delete gm[k2].cur.hasImg; } }
               await ctx.save();
             }, RESTART);
             if (w === "card") return clearKeys("清除明信片图", "所有明信片的画面会删除，信和明信片背面的话保留。确定吗？", async function () {

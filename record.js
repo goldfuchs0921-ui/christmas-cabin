@@ -29,7 +29,6 @@
       seq: parse("G4:1.5 A4:.5 G4:1 E4:3 G4:1.5 A4:.5 G4:1 E4:3 D5:2 D5:1 B4:3 C5:2 C5:1 G4:3 " + SN_5 + SN_5 +
         "D5:2 D5:1 F5:1.5 D5:.5 B4:1 C5:3 E5:3 C5:1 G4:1 E4:1 G4:1.5 F4:.5 D4:1 C4:3 R:3") }
   ];
-  R.record = { songs: SONGS };   // 方便测试
 
   function wavBlob(buf) {
     var d = buf.getChannelData(0), n = d.length, v = new DataView(new ArrayBuffer(44 + n * 2)), i;
@@ -185,7 +184,7 @@ background:conic-gradient(from 20deg,transparent 0 18%,rgba(255,255,255,.16) 24%
               tr.appendChild(em.cloneNode(true));
               tr.style.setProperty("--mq", -(w + 32) + "px");
               var sp = b.closest(".rfl") ? 28 : 40;   
-tr.style.setProperty("--mt", ((w + 30) / sp).toFixed(2) + "s");
+              tr.style.setProperty("--mt", ((w + 30) / sp).toFixed(2) + "s");
               tr.classList.add("run");
             }
           }
@@ -423,10 +422,10 @@ tr.style.setProperty("--mt", ((w + 30) / sp).toFixed(2) + "s");
             roche.ui.toast(loopOne ? "单曲循环" : "列表循环（播完自动下一首）"); return refresh();
           }
           if (name === "add") {
-            var inp = document.createElement("input");
-            inp.type = "file";   // 不限制类型：iOS 文件选择器写了 accept 会把 mp3/m4a 灰掉，选完后再检查格式
-            inp.onchange = function () { addFile(inp.files && inp.files[0]); };
-            return inp.click();
+            var fin = document.createElement("input");
+            fin.type = "file";   // 不限制类型：iOS 文件选择器写了 accept 会把 mp3/m4a 灰掉，选完后再检查格式
+            fin.onchange = function () { addFile(fin.files && fin.files[0]); };
+            return fin.click();
           }
           if (name === "del") {
             var s = mine[i];

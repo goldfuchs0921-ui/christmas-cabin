@@ -1,12 +1,12 @@
-/* 圣诞小屋 v1.9.2 — 核心文件（入口）
+/* 圣诞小屋 v1.9.3 — 核心文件（入口）
  * 负责：加载模块、共享状态、AI 调用（流式可选）、后台任务、路由、事件分发
  * 界面和功能都在 modules/ 里，哪里不对改哪个文件：
  *   （所有文件都直接放在仓库最外层，不用文件夹）
- *   theme 材质样式 · home 主页 · settings 设置页 · worldbook 世界书选择 · cert 好孩子名单 · gift 礼物盲盒 · mail 圣诞信箱 · santa 神秘圣诞老人 · record 唱片机 · snow-art 雪仗的画面与音效 · snow 雪仗 · batch 一键生成
+ *   theme 材质样式 · home 主页 · settings 设置页 · worldbook 世界书选择 · cert 好孩子名单 · gift 礼物盲盒 · mail 圣诞信箱 · santa 神秘圣诞老人 · record 唱片机 · snow-art 雪仗的画面与音效 · snow 雪仗 · batch 一键生成 · memory 写入记忆
  */
 (function () {
   "use strict";
-  var VER = "1.9.2";
+  var VER = "1.9.3";
   var BASE = "https://raw.githubusercontent.com/goldfuchs0921-ui/christmas-cabin/main/";
   try {
     var cs = document.currentScript;
@@ -303,10 +303,9 @@
             '文件加载情况：' + Object.keys(R.status).map(function (k) { return (R.status[k] ? "✓" : "✗") + k; }).join(" ") + '<br>' +
             esc(st.errs.slice(-2).join("；")) + '</p><div class="center"><button class="btn" data-act="core.go" data-v="home">回主页</button></div></div></div>';
           var same = view.dataset.v === st.view, y0 = view.scrollTop, ch0 = view.querySelector(".chips"), x0 = ch0 ? ch0.scrollLeft : 0;
-view.dataset.v = st.view;
-view.innerHTML = html;
-if (same) { view.scrollTop = y0; var ch1 = view.querySelector(".chips"); if (ch1) ch1.scrollLeft = x0; }
-
+          view.dataset.v = st.view;
+          view.innerHTML = html;
+          if (same) { view.scrollTop = y0; var ch1 = view.querySelector(".chips"); if (ch1) ch1.scrollLeft = x0; }
           st.anim = null;
         }
         function go(v) { st.view = v; st.d.ready[v] = false; save(); render(); view.scrollTop = 0; }

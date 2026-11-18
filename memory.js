@@ -20,16 +20,13 @@
 .rcc .mm-gh small{color:var(--soft);font-size:12px}
 .rcc .mm-gh span{color:var(--soft);width:18px;text-align:center}
 .rcc .mm-r{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px dashed rgba(90,58,24,.4)}
-.rcc .mk{flex:0 0 auto;position:relative;width:22px;height:22px;margin-top:2px;padding:0;border-radius:5px;border:2px solid #8a6a45;background:rgba(255,248,230,.5)}
-.rcc .mk.on{background:#4f7a4a;border-color:#2f4f2c}
-.rcc .mk.on::after{content:"";position:absolute;left:5px;top:1px;width:6px;height:11px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
+.rcc .mk{margin-top:2px}
 .rcc .mm-t{flex:1;min-width:0}
 .rcc .mm-t b{display:block;font-weight:600}
 .rcc .mm-t small,.rcc .mm-d small{display:block;color:var(--soft);font-size:12px;line-height:1.5}
 .rcc .mm-d{margin:12px 0;padding:12px;border-radius:8px;background:rgba(120,80,30,.12);box-shadow:inset 0 0 0 1px rgba(90,58,24,.25)}
 .rcc .mm-h{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .rcc .mm-h b{flex:1;min-width:0}
-.rcc .mm-v{font-size:12px;color:var(--soft);white-space:nowrap}
 .rcc .mm-d select.in,.rcc .mm-d textarea.in{display:block;width:100%;margin:6px 0;font-size:14px}
 .rcc .mm-d textarea.in{min-height:110px;resize:vertical;line-height:1.6}
 .rcc .mm-b{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}

@@ -28,9 +28,6 @@
 .rcc .wbr .wbk.del.on::after{content:"×";left:0;top:-3px;width:100%;height:auto;border:0;transform:none;color:#fff;font-size:16px;line-height:18px;text-align:center}
 .rcc .wbmbar{margin:10px 0 0;padding:8px 12px;border-radius:8px;background:rgba(163,41,58,.14);box-shadow:inset 0 0 0 1px rgba(163,41,58,.55);color:#7a1d2c;font-size:13px}
 .rcc .btn.danger{background:linear-gradient(#e08a94,#c0485a 52%,#8f1f33);color:#fff;border-color:#6e1522;text-shadow:none}
-.rcc .wbk{flex:0 0 auto;position:relative;width:22px;height:22px;padding:0;border-radius:5px;border:2px solid #8a6a45;background:rgba(255,248,230,.5)}
-.rcc .wbk.on{background:#4f7a4a;border-color:#2f4f2c}
-.rcc .wbk.on::after{content:"";position:absolute;left:5px;top:1px;width:6px;height:11px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
 .rcc .wbk.part{background:#b07a1e;border-color:#6e4710}
 .rcc .wbk.part::after{content:"";position:absolute;left:3px;top:8px;width:10px;height:0;border-top:2.5px solid #fff}
 .rcc .wbn{flex:1;min-width:0;padding:0;border:0;background:none;text-align:left;color:var(--ink)}
@@ -375,7 +372,7 @@
         var s, gs;
         if (t.key !== "wb") {
           gs = groups(t);
-          if (!gs.length) return '<p class="hint">还没有导入内容。点上面的「导入文件」或「粘贴导入」，导入从 Roche 导出的' + (t.key === "pre" ? "预设" : "正则卡包") + '。</p>';
+          if (!gs.length) return '<p class="hint">还没有导入内容。点上面的「导入文件」，导入从 Roche 导出的' + (t.key === "pre" ? "预设" : "正则卡包") + '。</p>';
           s = stat(t, sel);
           return '<div class="wb">' + gs.map(function (c) { return catHtml(t, c, sel); }).join("") + '</div>' + (mng ? "" :
             '<div class="wbstat">已选 ' + s.n + ' 条（导入的内容默认都不勾选）</div>' +

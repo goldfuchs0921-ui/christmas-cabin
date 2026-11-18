@@ -10,9 +10,6 @@
   var ORDER = ["cert", "gift", "snow", "santa"];
   var SVG = '<svg viewBox="0 0 48 48" fill="none" stroke="#8a5a1c" stroke-width="2.2"><path d="M10 38L30 18"/><path d="M30 18l-4-4 6-6 4 4z" fill="rgba(163,41,58,.4)"/><path d="M38 8v6M35 11h6M14 12v4M12 14h4M40 30v4M38 32h4"/></svg>';
   var CSS = `
-.rcc .bk{flex:0 0 auto;position:relative;width:22px;height:22px;padding:0;border-radius:5px;border:2px solid #8a6a45;background:rgba(255,248,230,.5)}
-.rcc .bk.on{background:#4f7a4a;border-color:#2f4f2c}
-.rcc .bk.on::after{content:"";position:absolute;left:5px;top:1px;width:6px;height:11px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
 .rcc .bk[disabled]{opacity:.35}
 .rcc .bi{display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px dashed rgba(90,58,24,.4)}
 .rcc .bi .bt{flex:1;min-width:0}

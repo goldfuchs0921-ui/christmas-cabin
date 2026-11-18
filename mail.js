@@ -10,9 +10,6 @@
   var SVG = '<svg viewBox="0 0 48 48" fill="none" stroke="#8a5a1c" stroke-width="2.2"><rect x="6" y="12" width="36" height="25" rx="2" fill="rgba(255,255,255,.35)"/><path d="M6 14l18 13 18-13"/><circle cx="24" cy="27" r="4" fill="#a3293a" stroke="none"/></svg>';
   var KAI = '"KaiTi","STKaiti","Kaiti SC",serif';
   var CSS = `
-.rcc .tabs{display:flex;gap:24px;margin:0 0 14px;border-bottom:1px solid rgba(90,58,24,.35)}
-.rcc .tabs button{padding:8px 0;border:0;border-bottom:2px solid transparent;background:none;color:var(--soft)}
-.rcc .tabs button.on{color:var(--ink);font-weight:600;border-color:#b07a1e}
 .rcc .tree{display:block;width:210px;margin:0 auto;filter:drop-shadow(0 6px 6px rgba(60,30,0,.35))}
 .rcc .mt-lt{animation:rcc-mtw 2.6s ease-in-out infinite;animation-delay:var(--d,0s)}
 @keyframes rcc-mtw{0%,100%{opacity:1}50%{opacity:.45}}
@@ -32,7 +29,6 @@
 .rcc .lt{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 0;border-bottom:1px dashed rgba(90,58,24,.4)}
 .rcc .lt small{display:block;color:var(--soft)}
 .rcc .lt .del{background:none;border:0;color:var(--soft);font-size:18px;padding:8px 9px}
-.rcc .mm-v{font-size:12px;color:var(--soft);white-space:nowrap}
 /* ---------- 木桌 ---------- */
 .rcc .desk{position:relative;min-height:580px;border-radius:14px;overflow:hidden;background-color:#4a2c18;background-image:radial-gradient(ellipse 85% 55% at 16% 0%,rgba(255,214,150,.42),rgba(255,214,150,0) 72%),var(--tex-wood,none);background-size:auto,256px 256px;box-shadow:inset 0 0 44px rgba(0,0,0,.7),inset 0 0 0 2px rgba(255,214,150,.12),0 0 0 3px #2c180c,0 10px 18px rgba(0,0,0,.55)}
 .rcc .desk::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 42%,transparent 48%,rgba(0,0,0,.5) 100%)}
@@ -158,23 +154,6 @@
     var reply = String(o.reply || "").trim();
     if (!reply && !m) reply = t.replace(/^```[a-z]*\n?|```$/g, "").trim();
     return { reply: reply, card: String(o.card || "").trim().slice(0, 40), scene: String(o.scene || "").trim().slice(0, 300) };
-  }
-  async function toData(src) {
-    if (/^data:/.test(src)) return src;
-    try {
-      var b = await (await fetch(src)).blob();
-      return await new Promise(function (ok, no) { var f = new FileReader(); f.onload = function () { ok(f.result); }; f.onerror = no; f.readAsDataURL(b); });
-    } catch (err) { return src; }
-  }
-  function measure(src) {
-    return new Promise(function (ok) {
-      var im = new Image(), done = false;
-      function fin(v) { if (!done) { done = true; ok(v); } }
-      im.onload = function () { fin(im.naturalWidth && im.naturalHeight ? Math.max(0.5, Math.min(2, im.naturalWidth / im.naturalHeight)) : 1.5); };
-      im.onerror = function () { fin(1.5); };
-      setTimeout(function () { fin(1.5); }, 4000);
-      im.src = src;
-    });
   }
   var PEN = '<svg class="pen" viewBox="0 0 120 14" aria-hidden="true"><defs><linearGradient id="mp-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6d65a"/><stop offset=".5" stop-color="#e0b53a"/><stop offset="1" stop-color="#a97f1c"/></linearGradient></defs>' +
     '<rect x="14" y="2" width="88" height="10" fill="url(#mp-b)"/><rect x="4" y="2" width="10" height="10" rx="2" fill="#e58d98"/><rect x="14" y="2" width="6" height="10" fill="#b9c3cf"/><path d="M102 2L118 7L102 12Z" fill="#e8c99a"/><path d="M112 5L118 7L112 9Z" fill="#3a2a1a"/></svg>';
@@ -316,11 +295,7 @@
         if (!l || !l.pc || !l.pc.img || imgs[l.id]) return;
         try {
           var s = await roche.storage.get("pcimg:" + l.id);
-          if (s && s.length > 400000 && R.img) {   // 以前存的大图：顺手缩小
-            var pr = await R.img.prepare(s, 1024);
-            if (pr.src.length < s.length) { s = pr.src; await roche.storage.set("pcimg:" + l.id, s); l.pc.ar = pr.ar; saveLetters(); }
-          }
-          if (s) { imgs[l.id] = s; if (!l.pc.ar) { l.pc.ar = await measure(s); saveLetters(); } if (open === l.id) ctx.render(); }
+          if (s) { imgs[l.id] = s; if (open === l.id) ctx.render(); }
         } catch (err) { /* 读不到就显示空白明信片 */ }
       }
       function polish(fb) {
@@ -339,7 +314,6 @@
       ctx.root.addEventListener("input", onIn);
 
       return {
-        init: function () { st.wishText = st.wishText || ""; },
         destroy: function () { timers.forEach(clearTimeout); timers = []; ctx.root.removeEventListener("input", onIn); },
         back: function () {
           if (ov) { ov = null; return true; }
@@ -473,7 +447,7 @@
               var r = await roche.ai.generateImage({ prompt: "vintage christmas postcard illustration, " + (L4.pc.scene || "a snowy cabin with warm lights") + ", warm light, soft storybook watercolor style, no text, no letters" });
               var src = ctx.imgSrc(r);
               if (!src) throw new Error("没有拿到图片，请检查生图设置");
-              var pr = R.img ? await R.img.prepare(src, 1024) : { src: await toData(src), ar: await measure(src) };
+              var pr = await R.img.prepare(src, 1024);
               await roche.storage.set("pcimg:" + L4.id, pr.src);
               imgs[L4.id] = pr.src; L4.pc.img = true; L4.pc.ar = pr.ar; await saveLetters();
             });
